@@ -26,6 +26,7 @@ cadcraft-ui-egui = { path = "crates/ui-egui" }
 cadcraft-mcp = { path = "crates/mcp" }
 # Which paths stored in a drawing (xrefs, data links) may be opened.
 craft-docpath = { version = "0.1.0", git = "https://github.com/storytold/craft-libs", rev = "82a24b006eefa036b43c09a67fb9a3fbd17ffe63" }
+cadcraft-assistant = { path = "crates/assistant" }
 
 # foundation
 thiserror = "2"
@@ -33,6 +34,8 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 log = "0.4"
 rayon = "1"
+# HTTP client for the assistant's model endpoint (blocking, rustls; native only)
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 
 # rendering / formats
 tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd", "png-format"] }

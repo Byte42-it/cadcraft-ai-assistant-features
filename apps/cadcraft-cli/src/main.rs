@@ -61,6 +61,7 @@ const USAGE: &str = "usage:
   cadcraft-cli run [FILE | --sample | --metric] [--script TEXT] [--script-file F.scr] [--cmd 'id {json}']... [--save OUT.dxf] [--export OUT.(png|svg|pdf)] [FRAMING]
   cadcraft-cli commands [FILTER]
   cadcraft-cli mcp [--connect HOST:PORT [--lazy] [--launch]]
+  cadcraft-cli ask \"PROMPT\" [--open FILE | --sample | --metric] [--model M] [--base-url URL] [--max-steps N] [--yes] [--save OUT.dxf] [--export OUT.(png|svg|pdf)]
   cadcraft-cli perf [N | FILE]
   cadcraft-cli sample (bracket|floorplan) OUT.(dxf|dwg|svg|png)
   cadcraft-cli --version
@@ -73,7 +74,15 @@ image framing (png 2400x1600, svg, pdf; always model space):
                            scaled to fit the image without distortion.
   --view extents           always fit the drawing extents.
   --view current           the current view (as last set by zoom/pan/view.set; a freshly
-                           opened drawing's view is its extents plus a 10% margin).";
+                           opened drawing's view is its extents plus a 10% margin).
+
+ask (an assistant carries out the prompt on the drawing; any OpenAI-compatible endpoint):
+  --base-url URL           the API root; default $CADCRAFT_ASSISTANT_BASE_URL, else
+                           http://localhost:11434/v1 (a local Ollama).
+  --model M                default $CADCRAFT_ASSISTANT_MODEL.
+  $CADCRAFT_ASSISTANT_API_KEY  sent as a bearer token when set.
+  --yes                    allow new/open/save without asking (otherwise asked on a terminal,
+                           declined when stdin is not one).";
 
 /// What part of model space an image export shows.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -636,6 +645,173 @@ mod mcp_args_tests {
     }
 }
 
+/// What `cadcraft-cli ask` was asked to do.
+#[derive(Debug, Default, PartialEq)]
+struct AskArgs {
+    prompt: String,
+    open: Option<String>,
+    sample: bool,
+    metric: bool,
+    model: Option<String>,
+    base_url: Option<String>,
+    max_steps: Option<usize>,
+    yes: bool,
+    save: Option<String>,
+    export: Option<String>,
+}
+
+/// The value after option `opt`; a missing or flag-like value is an error.
+fn option_value(it: &mut std::slice::Iter<'_, String>, opt: &str) -> Result<String, String> {
+    it.next().filter(|v| !v.trim().is_empty() && !v.starts_with("--")).cloned().ok_or_else(|| format!("{opt} needs a value"))
+}
+
+fn parse_ask_args(args: &[String]) -> Result<AskArgs, String> {
+    let mut a = AskArgs::default();
+    let mut prompt: Option<String> = None;
+    let mut it = args.iter();
+    while let Some(arg) = it.next() {
+        match arg.as_str() {
+            "--open" => a.open = Some(option_value(&mut it, "--open")?),
+            "--sample" => a.sample = true,
+            "--metric" => a.metric = true,
+            "--model" => a.model = Some(option_value(&mut it, "--model")?),
+            "--base-url" => a.base_url = Some(option_value(&mut it, "--base-url")?),
+            "--max-steps" => {
+                let max = cadcraft_assistant::MAX_STEPS;
+                let n = option_value(&mut it, "--max-steps")?.parse::<usize>().ok().filter(|n| (1..=max).contains(n));
+                a.max_steps = Some(n.ok_or_else(|| format!("--max-steps needs a number from 1 to {max}"))?);
+            }
+            "--yes" | "-y" => a.yes = true,
+            "--save" => a.save = Some(option_value(&mut it, "--save")?),
+            "--export" => a.export = Some(option_value(&mut it, "--export")?),
+            other if other.starts_with("--") => return Err(format!("ask: unknown option {other}\n{USAGE}")),
+            text if prompt.is_none() => prompt = Some(text.to_string()),
+            _ => return Err("ask: give the prompt as one quoted argument".into()),
+        }
+    }
+    a.prompt = prompt.filter(|p| !p.trim().is_empty()).ok_or("ask needs a prompt, e.g. cadcraft-cli ask \"draw a 100x60 rectangle at 0,0\"")?;
+    if [a.open.is_some(), a.sample, a.metric].iter().filter(|x| **x).count() > 1 {
+        return Err("ask: choose one of --open, --sample and --metric".into());
+    }
+    Ok(a)
+}
+
+/// At most `max` characters of `s`.
+fn clip(s: &str, max: usize) -> String {
+    match s.char_indices().nth(max) {
+        Some((at, _)) => format!("{}…", &s[..at]),
+        None => s.to_string(),
+    }
+}
+
+/// `ask` on a terminal: progress on stderr, confirmations asked on stdin.
+struct AskObserver {
+    yes: bool,
+}
+
+impl cadcraft_assistant::Observer for AskObserver {
+    fn confirm(&mut self, name: &str, arguments: &Value) -> bool {
+        use std::io::IsTerminal;
+        if self.yes {
+            return true;
+        }
+        if !std::io::stdin().is_terminal() {
+            eprintln!("   declined `{name}`: pass --yes to allow it");
+            return false;
+        }
+        eprint!("   allow `{name}` {}? [y/N] ", clip(&arguments.to_string(), 200));
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line).is_ok() && matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+    }
+    fn event(&mut self, e: cadcraft_assistant::Event<'_>) {
+        use cadcraft_assistant::Event;
+        match e {
+            Event::ToolCall { name, arguments } => eprintln!("-> {name} {}", clip(&arguments.to_string(), 200)),
+            Event::ToolResult { ok: false, text, .. } => eprintln!("   error: {}", clip(text, 300)),
+            Event::Declined { name } => eprintln!("   declined `{name}`"),
+            // The reply goes to stdout at the end.
+            Event::Text(_) | Event::ToolResult { .. } => {}
+        }
+    }
+}
+
+fn ask(args: &[String]) -> Result<(), String> {
+    let a = parse_ask_args(args)?;
+    let env = |k: &str| std::env::var(k).ok().filter(|v| !v.trim().is_empty());
+    let base_url = a.base_url.clone().or_else(|| env("CADCRAFT_ASSISTANT_BASE_URL")).unwrap_or_else(|| "http://localhost:11434/v1".into());
+    let model = a
+        .model
+        .clone()
+        .or_else(|| env("CADCRAFT_ASSISTANT_MODEL"))
+        .ok_or("ask needs a model: --model M or $CADCRAFT_ASSISTANT_MODEL (e.g. qwen3:14b for a local Ollama)")?;
+    let mut s = Session::empty();
+    if a.sample {
+        s.open_drawing(cadcraft_engine::sample::default_sample(), "Bracket", None);
+    } else if a.metric {
+        s.new_drawing(true);
+    } else if let Some(f) = &a.open {
+        open(&mut s, f)?;
+    }
+    if s.docs.is_empty() {
+        s.new_drawing(false);
+    }
+    let mut backend = cadcraft_mcp::Headless { session: s };
+    let mut provider = cadcraft_assistant::OpenAiCompatible::new(&base_url, env("CADCRAFT_ASSISTANT_API_KEY"));
+    let mut config = cadcraft_assistant::Config::new(model);
+    if let Some(n) = a.max_steps {
+        config.max_steps = n;
+    }
+    let turn = cadcraft_assistant::Agent::new(config).send(&mut provider, &mut backend, &a.prompt, &mut AskObserver { yes: a.yes });
+    if let Ok(t) = &turn {
+        outln!("{}", t.reply.trim());
+    }
+    // Write what was done even when the turn stopped early: the files were asked for.
+    let s = &backend.session;
+    if let Some(p) = &a.save {
+        export(s, p)?;
+    }
+    if let Some(p) = &a.export {
+        export_framed(s, p, None)?;
+    }
+    turn.map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod ask_args_tests {
+    use super::*;
+
+    fn args(a: &[&str]) -> Vec<String> {
+        a.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn ask_takes_one_prompt_and_options() {
+        let a = parse_ask_args(&args(&["draw a circle", "--sample", "--model", "m", "--max-steps", "5", "--yes", "--save", "o.dxf"])).unwrap();
+        assert_eq!(a.prompt, "draw a circle");
+        assert!(a.sample && a.yes);
+        assert_eq!((a.model.as_deref(), a.max_steps, a.save.as_deref()), (Some("m"), Some(5), Some("o.dxf")));
+    }
+
+    #[test]
+    fn ask_rejects_bad_arguments() {
+        for bad in [
+            &[][..],
+            &["  "],
+            &["a", "b"],
+            &["p", "--model"],
+            &["p", "--model", "--yes"],
+            &["p", "--max-steps", "0"],
+            &["p", "--max-steps", "99999999999999999999999"],
+            &["p", "--max-steps", "-1"],
+            &["p", "--sample", "--metric"],
+            &["p", "--open", "a.dxf", "--sample"],
+            &["p", "--frobnicate"],
+        ] {
+            assert!(parse_ask_args(&args(bad)).is_err(), "{bad:?}");
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let code = cli();
     if STDOUT_ERROR.load(Ordering::Relaxed) { ExitCode::FAILURE } else { code }
@@ -662,6 +838,7 @@ fn cli() -> ExitCode {
             outln!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
         }),
         Some("mcp") => mcp(&rest),
+        Some("ask") => ask(&rest),
         Some("--version" | "-V") => {
             outln!("cadcraft-cli {}", env!("CARGO_PKG_VERSION"));
             Ok(())

@@ -3,7 +3,7 @@
 use cadcraft_mcp::{Backend, Headless};
 use serde_json::{Value, json};
 
-use crate::{Agent, Config, Error, Event, MAX_STEPS, Observer, Scripted, text_reply, tool_reply};
+use crate::{Agent, Config, Error, Event, MAX_STEPS, Observer, Scripted, Turn, text_reply, tool_reply};
 
 fn count(b: &mut Headless, kind: Option<&str>) -> u64 {
     let params = kind.map_or(json!({}), |k| json!({"type": k}));
@@ -186,7 +186,30 @@ fn a_model_that_never_stops_calling_tools_is_stopped() {
     cfg.max_steps = 1000;
     let r = Agent::new(cfg).send(&mut p, &mut Headless::default(), "loop", &mut ());
     assert_eq!(r, Err(Error::StepLimit { steps: MAX_STEPS }));
-    assert_eq!(p.requests.len(), MAX_STEPS);
+    // The tool-calling steps, then one wrap-up call that the model wasted on another tool call.
+    assert_eq!(p.requests.len(), MAX_STEPS + 1);
+}
+
+#[test]
+fn out_of_steps_the_model_gets_one_call_without_tools_to_say_what_it_did() {
+    let mut p = Scripted::new([
+        tool_reply(&[("a", "list_commands", json!({"filter": "zz"}))]),
+        tool_reply(&[("b", "list_commands", json!({"filter": "zz"}))]),
+        text_reply("Ho elencato i comandi; non ho disegnato nulla."),
+        text_reply("Ciao."),
+    ]);
+    let mut cfg = Config::new("m");
+    cfg.max_steps = 2;
+    let mut agent = Agent::new(cfg);
+    let turn = agent.send(&mut p, &mut Headless::default(), "loop", &mut ()).unwrap();
+    assert_eq!(turn, Turn { reply: "Ho elencato i comandi; non ho disegnato nulla.".into(), steps: 3, tool_calls: 2, stopped: true });
+    // The wrap-up request offers no tools; the nudge stays out of the history, the answer goes in.
+    assert!(p.requests[2].get("tools").is_none());
+    assert!(agent.messages().iter().all(|m| m["content"].as_str().is_none_or(|c| !c.contains("steps allowed"))));
+    assert_eq!(agent.messages().last().unwrap()["content"], "Ho elencato i comandi; non ho disegnato nulla.");
+    // The conversation carries on.
+    let turn = agent.send(&mut p, &mut Headless::default(), "ciao", &mut ()).unwrap();
+    assert_eq!((turn.reply.as_str(), turn.stopped), ("Ciao.", false));
 }
 
 #[test]

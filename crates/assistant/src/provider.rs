@@ -8,6 +8,12 @@ use serde_json::{Value, json};
 /// `tools`); the reply is the endpoint's JSON response (`choices[0].message`…).
 pub trait Provider {
     fn complete(&mut self, request: &Value) -> Result<Value, String>;
+    /// Credit the endpoint has set aside on the account for the conversation in hand, in USD,
+    /// when its billing works that way (a prepaid key with a spending block). It is not spent
+    /// yet: a balance read while the key lives is short by this much.
+    fn reserved_usd(&self) -> Option<f64> {
+        None
+    }
 }
 
 /// A provider that replays canned responses, for tests and demos without a network. It records

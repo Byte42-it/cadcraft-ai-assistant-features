@@ -61,7 +61,7 @@ const USAGE: &str = "usage:
   cadcraft-cli run [FILE | --sample | --metric] [--script TEXT] [--script-file F.scr] [--cmd 'id {json}']... [--save OUT.dxf] [--export OUT.(png|svg|pdf)] [FRAMING]
   cadcraft-cli commands [FILTER]
   cadcraft-cli mcp [--connect HOST:PORT [--lazy] [--launch]]
-  cadcraft-cli ask \"PROMPT\" [--open FILE | --sample | --metric] [--model M] [--base-url URL] [--max-steps N] [--yes] [--save OUT.dxf] [--export OUT.(png|svg|pdf)]
+  cadcraft-cli ask \"PROMPT\" [--open FILE | --sample | --metric] [--model M] [--max-steps N] [--yes] [--save OUT.dxf] [--export OUT.(png|svg|pdf)]
   cadcraft-cli perf [N | FILE]
   cadcraft-cli sample (bracket|floorplan) OUT.(dxf|dwg|svg|png)
   cadcraft-cli --version
@@ -76,11 +76,9 @@ image framing (png 2400x1600, svg, pdf; always model space):
   --view current           the current view (as last set by zoom/pan/view.set; a freshly
                            opened drawing's view is its extents plus a 10% margin).
 
-ask (an assistant carries out the prompt on the drawing; any OpenAI-compatible endpoint):
-  --base-url URL           the API root; default $CADCRAFT_ASSISTANT_BASE_URL, else
-                           http://localhost:11434/v1 (a local Ollama).
-  --model M                default $CADCRAFT_ASSISTANT_MODEL.
-  $CADCRAFT_ASSISTANT_API_KEY  sent as a bearer token when set.
+ask (the AI Assistant carries out the prompt on the drawing, through a FANTASTICO account):
+  $FANTASTICO_KEY          the account key (ck-fant-...) or project key (sk-fant-...).
+  --model M                default: the model the account suggests.
   --yes                    allow new/open/save without asking (otherwise asked on a terminal,
                            declined when stdin is not one).";
 
@@ -653,7 +651,6 @@ struct AskArgs {
     sample: bool,
     metric: bool,
     model: Option<String>,
-    base_url: Option<String>,
     max_steps: Option<usize>,
     yes: bool,
     save: Option<String>,
@@ -675,7 +672,6 @@ fn parse_ask_args(args: &[String]) -> Result<AskArgs, String> {
             "--sample" => a.sample = true,
             "--metric" => a.metric = true,
             "--model" => a.model = Some(option_value(&mut it, "--model")?),
-            "--base-url" => a.base_url = Some(option_value(&mut it, "--base-url")?),
             "--max-steps" => {
                 let max = cadcraft_assistant::MAX_STEPS;
                 let n = option_value(&mut it, "--max-steps")?.parse::<usize>().ok().filter(|n| (1..=max).contains(n));
@@ -701,6 +697,15 @@ fn clip(s: &str, max: usize) -> String {
     match s.char_indices().nth(max) {
         Some((at, _)) => format!("{}…", &s[..at]),
         None => s.to_string(),
+    }
+}
+
+/// The assistant's model endpoint: a FANTASTICO account.
+struct FantasticoProvider(fantastico_sdk::Fantastico);
+
+impl cadcraft_assistant::Provider for FantasticoProvider {
+    fn complete(&mut self, request: &Value) -> Result<Value, String> {
+        self.0.chat_completion(request).map_err(|e| format!("{} ({})", e.message, e.code))
     }
 }
 
@@ -737,13 +742,15 @@ impl cadcraft_assistant::Observer for AskObserver {
 
 fn ask(args: &[String]) -> Result<(), String> {
     let a = parse_ask_args(args)?;
-    let env = |k: &str| std::env::var(k).ok().filter(|v| !v.trim().is_empty());
-    let base_url = a.base_url.clone().or_else(|| env("CADCRAFT_ASSISTANT_BASE_URL")).unwrap_or_else(|| "http://localhost:11434/v1".into());
-    let model = a
-        .model
-        .clone()
-        .or_else(|| env("CADCRAFT_ASSISTANT_MODEL"))
-        .ok_or("ask needs a model: --model M or $CADCRAFT_ASSISTANT_MODEL (e.g. qwen3:14b for a local Ollama)")?;
+    let key = std::env::var("FANTASTICO_KEY").ok().filter(|v| !v.trim().is_empty()).ok_or("ask needs a FANTASTICO key in $FANTASTICO_KEY")?;
+    let opts = fantastico_sdk::Options { title: "CADCraft".into(), ..fantastico_sdk::Options::default() };
+    let client = fantastico_sdk::Fantastico::new(key, opts).map_err(|e| e.message)?;
+    // The account suggests a model; a project key has none to ask for.
+    let model = match (&a.model, client.surface()) {
+        (Some(m), _) => m.clone(),
+        (None, fantastico_sdk::Surface::Edge) => client.config().map_err(|e| e.message)?.model,
+        (None, fantastico_sdk::Surface::Runtime) => fantastico_sdk::DEFAULT_MODEL.to_string(),
+    };
     let mut s = Session::empty();
     if a.sample {
         s.open_drawing(cadcraft_engine::sample::default_sample(), "Bracket", None);
@@ -756,7 +763,7 @@ fn ask(args: &[String]) -> Result<(), String> {
         s.new_drawing(false);
     }
     let mut backend = cadcraft_mcp::Headless { session: s };
-    let mut provider = cadcraft_assistant::OpenAiCompatible::new(&base_url, env("CADCRAFT_ASSISTANT_API_KEY"));
+    let mut provider = FantasticoProvider(client);
     let mut config = cadcraft_assistant::Config::new(model);
     if let Some(n) = a.max_steps {
         config.max_steps = n;

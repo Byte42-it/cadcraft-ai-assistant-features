@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 
 pub mod animation;
+pub mod assistant;
 pub mod autosave;
 pub mod bedit;
 pub mod canvas;
@@ -243,6 +244,8 @@ pub struct CadApp {
     pub hatch_dlg: Option<hatchdlg::HatchDlgState>,
     /// The Edit Block Definition dialog ([`bedit`]).
     pub bedit: bedit::State,
+    /// The AI Assistant palette ([`assistant`]).
+    pub assistant: assistant::Assistant,
 }
 
 impl CadApp {
@@ -281,6 +284,7 @@ impl CadApp {
             gpu_notice: None,
             hatch_dlg: None,
             bedit: bedit::State::default(),
+            assistant: assistant::Assistant::default(),
         }
     }
 
@@ -376,6 +380,12 @@ impl CadApp {
         if !self.ui.recent_files.is_empty() {
             prefs["recentFiles"] = json!(self.ui.recent_files);
         }
+        if self.assistant.language != assistant::Language::default() {
+            prefs["assistantLanguage"] = json!(self.assistant.language.code());
+        }
+        if let Some(m) = &self.assistant.model {
+            prefs["assistantModel"] = json!(m);
+        }
         prefs.to_string()
     }
 
@@ -399,6 +409,12 @@ impl CadApp {
         }
         if let Some(v) = v.get("saveVersion").and_then(Value::as_str).and_then(SaveVersion::parse) {
             self.ui.save_version = v.year().to_string();
+        }
+        if let Some(l) = v.get("assistantLanguage").and_then(Value::as_str).and_then(assistant::Language::parse) {
+            self.assistant.set_language(l);
+        }
+        if let Some(m) = v.get("assistantModel").and_then(Value::as_str) {
+            self.assistant.set_model(Some(m.to_string()));
         }
         if let Some(files) = v.get("recentFiles").and_then(Value::as_array) {
             self.ui.recent_files = files.iter().filter_map(Value::as_str).filter(|p| !p.is_empty()).take(RECENT_FILES).map(str::to_string).collect();
@@ -562,6 +578,7 @@ impl CadApp {
             animation::unsmooth_scroll(ctx);
         }
         self.drain_control(ctx);
+        assistant::tick(self, ctx);
         self.finish_opening();
         self.opening.show(ctx);
         if !self.synthetic.is_empty() {

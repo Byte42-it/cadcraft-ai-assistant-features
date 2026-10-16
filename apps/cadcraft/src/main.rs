@@ -14,6 +14,7 @@
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+mod assistant_host;
 mod control_server;
 mod desktop_theme;
 #[cfg(any(target_os = "windows", test))]
@@ -338,6 +339,8 @@ fn main() -> eframe::Result {
                     log::warn!("no LISP support folder {}: {e}", support.display());
                 }
                 app.session.set_lisp_support_dir(Some(support));
+                // Window ▸ AI Assistant: its account key lives in the settings directory.
+                app.assistant.set_host(std::sync::Arc::new(assistant_host::FantasticoHost::new(&dir)));
             }
             app.integrated_titlebar = cfg!(target_os = "macos");
             if surface.present_mode == eframe::wgpu::PresentMode::AutoNoVsync {

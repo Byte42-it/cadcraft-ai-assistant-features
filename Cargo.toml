@@ -34,8 +34,8 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 log = "0.4"
 rayon = "1"
-# HTTP client for the assistant's model endpoint (blocking, rustls; native only)
-ureq = { version = "3", default-features = false, features = ["rustls"] }
+# The AI Assistant's model endpoint (desktop app and CLI only).
+fantastico-sdk = "0.1"
 
 # rendering / formats
 tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd", "png-format"] }

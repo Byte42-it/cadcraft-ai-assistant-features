@@ -116,6 +116,10 @@ pub enum Icon {
     DynInput,
     QuickProps,
     Gear,
+    /// Sweep away: a fresh start.
+    Broom,
+    /// Read again.
+    Refresh,
     Annotation,
     Workspace,
     ChevronDown,
@@ -550,6 +554,17 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, dim: bool) {
             pen.poly(&[(20.0, 15.0), (15.0, 20.0)], false, a);
             pen.poly(&[(9.0, 20.0), (4.0, 15.0)], false, a);
             pen.fill_c(12.0, 12.0, 2.0, pen.pt);
+        }
+        Broom => {
+            // Handle, then the head widening towards the bristles.
+            pen.l(20.0, 4.0, 12.0, 12.0);
+            pen.poly(&[(9.5, 10.5), (13.5, 14.5), (10.0, 21.5), (3.0, 16.0)], true, b);
+            pen.la(6.5, 17.5, 8.5, 15.0);
+            pen.la(8.5, 19.5, 10.5, 17.0);
+        }
+        Refresh => {
+            pen.arc(12.0, 12.0, 7.0, 20.0, 320.0, b);
+            pen.arrow_tip(17.4, 16.5, 0.64, -0.77, b);
         }
         Erase => {
             pen.poly(&[(4.0, 16.0), (13.0, 7.0), (19.0, 13.0), (12.0, 20.0), (8.0, 20.0)], true, b);

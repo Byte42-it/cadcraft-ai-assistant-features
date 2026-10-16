@@ -8,8 +8,10 @@ use serde_json::{Map, Value, json};
 
 use crate::provider::Provider;
 
-/// The most model calls one turn may make (the default and the cap of [`Config::max_steps`]).
-pub const MAX_STEPS: usize = 12;
+/// The most tool-calling model calls one turn may make (the default and the cap of
+/// [`Config::max_steps`]). Past it the model gets one last call, without tools, to say what it
+/// did.
+pub const MAX_STEPS: usize = 20;
 /// Tool calls taken from one model reply; the rest are dropped.
 const MAX_CALLS_PER_STEP: usize = 16;
 /// A tool result longer than this (in characters) is cut before it goes back to the model.
@@ -35,15 +37,25 @@ You carry out the user's drafting requests on the active drawing with your tools
 parameters; list_commands (with a filter) shows command ids and their parameters.\n\
 - When the request depends on what is already drawn, look first with inspect_drawing or query_entities. Never invent \
 entity handles: read them from the drawing.\n\
-- After changing the drawing, check the result with query_entities or inspect_drawing.\n\
+- After changing the drawing, check the result once with query_entities or inspect_drawing; don't repeat a check that passed.\n\
+- Never start a command that waits for a selection, the pointer, the clipboard or a dialog (SELECT, COPYCLIP, PASTECLIP, \
+PROPERTIES…): change entities with execute and JSON parameters instead. If a command is waiting for input you can't give, \
+run cancel.\n\
+- You have a limited number of steps per turn: plan the work, then act. Do what was asked and stop.\n\
 - new_drawing, open and save ask the user first; if the user declines, don't retry: ask what they want instead.\n\
+- If a request is ambiguous in a way that changes the result (\"scale by 20%\" can mean a factor of 0.2, 0.8 or \
+1.2; \"move it right\" without a distance), ask one short question before changing the drawing.\n\
 - If a command is refused, read the error and try another way at most twice, then explain what went wrong.\n\
 - Reply briefly, in the user's language: what you changed, or the answer to the question.";
+
+/// The last message of a turn that ran out of steps.
+const WRAP_UP: &str = "You have used all the steps allowed for this turn and your tools are now off. \
+In one or two sentences, in the user's language, tell the user what you did and what is left undone.";
 
 /// How the agent talks to its model.
 #[derive(Clone, Debug)]
 pub struct Config {
-    /// The model id sent with each request (e.g. `qwen3:14b` for Ollama, `anthropic/claude-sonnet-4` for OpenRouter).
+    /// The model id sent with each request, as the provider names it.
     pub model: String,
     /// Model calls allowed per turn (1 to [`MAX_STEPS`]).
     pub max_steps: usize,
@@ -95,6 +107,9 @@ pub struct Turn {
     pub steps: usize,
     /// Tools run (or declined).
     pub tool_calls: usize,
+    /// The step budget ran out: `reply` is the model's account of what it did and what is left,
+    /// made without tools.
+    pub stopped: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -158,11 +173,31 @@ impl Agent {
 
     /// Forget the conversation.
     pub fn reset(&mut self) {
+        self.messages = vec![self.system_message()];
+    }
+
+    /// Change the extra instructions (e.g. the reply language) and keep the conversation: the
+    /// next turn sends the new system prompt.
+    pub fn set_instructions(&mut self, instructions: Option<String>) {
+        self.config.instructions = instructions;
+        let system = self.system_message();
+        match self.messages.first_mut() {
+            Some(first) => *first = system,
+            None => self.messages.push(system),
+        }
+    }
+
+    /// Change the model and keep the conversation: the next turn asks the new model.
+    pub fn set_model(&mut self, model: impl Into<String>) {
+        self.config.model = model.into();
+    }
+
+    fn system_message(&self) -> Value {
         let system = match &self.config.instructions {
             Some(extra) if !extra.trim().is_empty() => format!("{SYSTEM}\n\n{}", extra.trim()),
             _ => SYSTEM.to_string(),
         };
-        self.messages = vec![json!({"role": "system", "content": system})];
+        json!({"role": "system", "content": system})
     }
 
     /// The tool definitions sent to the model, in chat-completions form.
@@ -197,7 +232,7 @@ impl Agent {
             }
             self.messages.push(assistant_message(text.as_deref(), &calls));
             if calls.is_empty() {
-                return Ok(Turn { reply: text.unwrap_or_default(), steps: step, tool_calls });
+                return Ok(Turn { reply: text.unwrap_or_default(), steps: step, tool_calls, stopped: false });
             }
             for call in &calls {
                 tool_calls += 1;
@@ -205,7 +240,21 @@ impl Agent {
                 self.messages.push(json!({"role": "tool", "tool_call_id": call.id, "content": result}));
             }
         }
-        Err(Error::StepLimit { steps: max_steps })
+        // Out of steps: the tools go away and the model gets one last call to tell the user what
+        // it did and what is left. The nudge stays out of the history; only the answer goes in.
+        let mut messages = self.messages.clone();
+        messages.push(json!({"role": "user", "content": WRAP_UP}));
+        let request = json!({"model": self.config.model, "messages": messages});
+        let response = provider.complete(&request).map_err(Error::Provider)?;
+        let (text, calls) = parse_reply(&response)?;
+        match text.filter(|t| !t.trim().is_empty()) {
+            Some(reply) if calls.is_empty() => {
+                observer.event(Event::Text(&reply));
+                self.messages.push(assistant_message(Some(&reply), &[]));
+                Ok(Turn { reply, steps: max_steps + 1, tool_calls, stopped: true })
+            }
+            _ => Err(Error::StepLimit { steps: max_steps }),
+        }
     }
 
     /// Past [`MAX_MESSAGES`], drop the oldest turns (each from its user message up to the next),
@@ -241,7 +290,7 @@ fn parse_reply(response: &Value) -> Result<(Option<String>, Vec<Call>), Error> {
         .map(|(i, c)| {
             let id = c.get("id").and_then(Value::as_str).filter(|s| !s.is_empty()).map_or_else(|| format!("call_{i}"), str::to_string);
             let name = c.pointer("/function/name").and_then(Value::as_str).unwrap_or_default().to_string();
-            // OpenAI sends the arguments as a JSON string; some servers (Ollama) as an object.
+            // The arguments arrive as a JSON string; some servers send an object.
             let arguments = match c.pointer("/function/arguments") {
                 None | Some(Value::Null) => Ok(json!({})),
                 Some(Value::String(s)) if s.trim().is_empty() => Ok(json!({})),

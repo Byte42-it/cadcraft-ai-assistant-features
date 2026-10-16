@@ -1217,3 +1217,62 @@ menu	Modify	Modifikace
 	Search for pattern	Hledat vzor
 	Not a number or distance: {text}	Není číslo ani vzdálenost: {text}
 	Query Texts	Dotaz na texty
+# AI Assistant
+	AI Assistant	Asistent AI
+	Hi! I'm the AI Assistant. Tell me what to draw or change in the drawing, and I'll do it with CADCraft's commands.	Dobrý den! Jsem asistent AI. Napište mi, co mám nakreslit nebo změnit ve výkresu, a udělám to příkazy CADCraftu.
+	To start, connect your FANTASTICO account: paste its account key (it starts with ck-fant-). The key stays on this computer and is never shown again.	Nejprve připojte svůj účet FANTASTICO: vložte jeho klíč účtu (začíná ck-fant-). Klíč zůstane v tomto počítači a už se nikdy nezobrazí.
+	Checking the key…	Kontroluji klíč…
+	Connected to account {conto}.	Připojeno k účtu {conto}.
+	What shall I draw?	Co mám nakreslit?
+	Declined: {tool}	Odmítnuto: {tool}
+	The AI Assistant is not available in this version yet.	Asistent AI v této verzi zatím není k dispozici.
+	Credit available: {usd} USD	Dostupný kredit: {usd} USD
+	New conversation	Nová konverzace
+	Working…	Pracuji…
+	The assistant wants to run {tool}.	Asistent chce spustit {tool}.
+	Allow	Povolit
+	Decline	Odmítnout
+	Ask the assistant…	Zeptejte se asistenta…
+	Send	Odeslat
+	Account key	Klíč účtu
+	Connect	Připojit
+	A key is already set on this computer	V tomto počítači už je klíč nastaven
+	This is not an account key: an account key starts with ck-fant-	Toto není klíč účtu: klíč účtu začíná ck-fant-
+	FANTASTICO does not recognise this key	FANTASTICO tento klíč nerozpoznal
+	FANTASTICO cannot be reached: check the internet connection	FANTASTICO není dostupné: zkontrolujte připojení k internetu
+	The credit on your FANTASTICO account has run out: top it up to continue	Kredit na vašem účtu FANTASTICO došel: pro pokračování jej dobijte
+	No account key is set	Není nastaven žádný klíč účtu
+	The stored account key is not readable	Uložený klíč účtu nelze přečíst
+	AI Assistant settings	Nastavení asistenta AI
+	Assistant language	Jazyk asistenta
+	Automatic (the language you write in)	Automaticky (jazyk, ve kterém píšete)
+	Suggested by the account ({model})	Navržený účtem ({model})
+	Suggested by the account	Navržený účtem
+	Search models…	Hledat modely…
+	Loading models…	Načítám modely…
+	The models could not be loaded	Modely se nepodařilo načíst
+	Account	Účet
+	Connected account: {conto}	Připojený účet: {conto}
+	Reading the account…	Načítám účet…
+	Change account key	Změnit klíč účtu
+	New account key	Nový klíč účtu
+	Running {command}…	Spouštím {command}…
+	Running a script…	Spouštím skript…
+	Looking up commands…	Prohlížím příkazy…
+	Looking at the drawing…	Prohlížím výkres…
+	Starting a new drawing…	Zakládám nový výkres…
+	Opening a drawing…	Otevírám výkres…
+	Saving the drawing…	Ukládám výkres…
+	Cancelling…	Ruším…
+	The assistant wants to start a new drawing: the current one will be closed.	Asistent chce založit nový výkres: aktuální bude zavřen.
+	The assistant wants to open {path}.	Asistent chce otevřít {path}.
+	The assistant wants to open a drawing.	Asistent chce otevřít výkres.
+	The assistant wants to save the drawing to {path}.	Asistent chce uložit výkres do {path}.
+	The assistant wants to save the drawing.	Asistent chce uložit výkres.
+	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	Asistent vyčerpal kroky tohoto tahu a zastavil se; výkres si ponechá, co udělal.
+	Start a new conversation? The messages so far will be cleared.	Začít novou konverzaci? Dosavadní zprávy budou smazány.
+	Keep	Ponechat
+	Refresh credit	Aktualizovat kredit
+	Includes {usd} USD set aside for this conversation and not yet spent.	Zahrnuje {usd} USD vyhrazených pro tuto konverzaci a dosud neutracených.
+	Change key	Změnit klíč
+	The account key was changed: now connected to account {conto}.	Klíč účtu byl změněn: nyní připojeno k účtu {conto}.

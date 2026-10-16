@@ -555,11 +555,13 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 name = "cadcraft"
 version = "0.9.0"
 dependencies = [
+ "cadcraft-assistant",
  "cadcraft-engine",
  "cadcraft-io",
  "cadcraft-ui-egui",
  "eframe",
  "egui",
+ "fantastico-sdk",
  "hidapi",
  "log",
  "muda",
@@ -575,14 +577,13 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-assistant"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "cadcraft-engine",
  "cadcraft-io",
  "cadcraft-mcp",
  "log",
  "serde_json",
- "ureq",
 ]
 
 [[package]]
@@ -594,6 +595,7 @@ dependencies = [
  "cadcraft-io",
  "cadcraft-mcp",
  "cadcraft-render",
+ "fantastico-sdk",
  "serde_json",
 ]
 
@@ -726,11 +728,13 @@ dependencies = [
 name = "cadcraft-ui-egui"
 version = "0.9.0"
 dependencies = [
+ "cadcraft-assistant",
  "cadcraft-color",
  "cadcraft-doc",
  "cadcraft-engine",
  "cadcraft-fonts",
  "cadcraft-geom",
+ "cadcraft-mcp",
  "cadcraft-render",
  "craft-ui",
  "egui",
@@ -1385,6 +1389,16 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener",
  "pin-project-lite",
+]
+
+[[package]]
+name = "fantastico-sdk"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fcf5f326f655690681f656ee00b4998a3173c3dc5465faf7874e6dc98233fa2"
+dependencies = [
+ "serde_json",
+ "ureq",
 ]
 
 [[package]]

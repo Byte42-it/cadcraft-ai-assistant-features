@@ -1393,9 +1393,9 @@ dependencies = [
 
 [[package]]
 name = "fantastico-sdk"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fcf5f326f655690681f656ee00b4998a3173c3dc5465faf7874e6dc98233fa2"
+checksum = "e2aff19c2ec784cd52f4cd3ff0e79856dce695a4e73b6a8da42a89b015f65090"
 dependencies = [
  "serde_json",
  "ureq",
@@ -3744,7 +3744,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.61.2",

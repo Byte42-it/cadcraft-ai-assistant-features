@@ -1119,7 +1119,7 @@
 # AI Assistant
 	AI Assistant	AI 助手
 	Hi! I'm the AI Assistant. Tell me what to draw or change in the drawing, and I'll do it with CADCraft's commands.	你好！我是 AI 助手。告诉我要在图形中绘制或修改什么，我会用 CADCraft 的命令完成。
-	To start, connect your FANTASTICO account: paste its account key (it starts with ck-fant-). The key stays on this computer and is never shown again.	首先，连接你的 FANTASTICO 账户：粘贴账户密钥（以 ck-fant- 开头）。密钥保存在这台电脑上，之后不会再显示。
+	To start, connect your {service} account: paste its account key (it starts with {prefix}). The key stays on this computer and is never shown again.	首先，连接你的 {service} 账户：粘贴账户密钥（以 {prefix} 开头）。密钥保存在这台电脑上，之后不会再显示。
 	Checking the key…	正在检查密钥…
 	Connected to account {conto}.	已连接到账户 {conto}。
 	What shall I draw?	要画什么？
@@ -1172,6 +1172,7 @@
 	Start a new conversation? The messages so far will be cleared.	开始新的对话？此前的消息将被清除。
 	Keep	保留
 	Refresh credit	刷新余额
-	Includes {usd} USD set aside for this conversation and not yet spent.	包含为本次对话预留且尚未花费的 {usd} USD。
+	Get an account key or top up your credit at {site}	在 {site} 获取账户密钥或充值余额
+	Top up credit	充值余额
 	Change key	更改密钥
 	The account key was changed: now connected to account {conto}.	账户密钥已更改：现已连接到账户 {conto}。

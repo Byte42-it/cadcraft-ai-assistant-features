@@ -77,7 +77,8 @@ image framing (png 2400x1600, svg, pdf; always model space):
                            opened drawing's view is its extents plus a 10% margin).
 
 ask (the AI Assistant carries out the prompt on the drawing, through a FANTASTICO account):
-  $FANTASTICO_KEY          the account key (ck-fant-...) or project key (sk-fant-...).
+  $FANTASTICO_KEY          the account key (ck-fant-...) or project key (sk-fant-...);
+                           get one, or top up the credit, at https://artcraft.fantastico.cc.
   --model M                default: the model the account suggests.
   --yes                    allow new/open/save without asking (otherwise asked on a terminal,
                            declined when stdin is not one).";

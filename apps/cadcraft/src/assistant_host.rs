@@ -105,7 +105,14 @@ impl FantasticoHost {
     }
 
     fn account_of(config: fantastico_sdk::EdgeConfig) -> Account {
-        Account { conto_id: config.account_id, model: config.model, remaining_usd: config.balance.map(|b| b.remaining_usd) }
+        Account { conto_id: config.account_id, model: config.model, remaining_usd: config.balance.as_ref().map(Self::credit) }
+    }
+
+    /// The credit as the user should see it: what is left including the unspent reservations
+    /// of live keys (`totalRemaining`, worked out by the account service), so a block set aside
+    /// by a key doesn't read as spent. An older server only says what is spendable right now.
+    fn credit(b: &fantastico_sdk::Balance) -> f64 {
+        b.total_remaining_usd.filter(|t| t.is_finite()).unwrap_or(b.remaining_usd)
     }
 
     fn client(&self) -> Result<Fantastico, String> {
@@ -126,16 +133,17 @@ impl cadcraft_assistant::Provider for FantasticoProvider {
             _ => format!("{} ({})", e.message, e.code),
         })
     }
-
-    /// The block the runtime key in hand holds on the account: `/balance` reports the credit
-    /// net of it, so without this a first "hi" looks like it cost a whole block.
-    fn reserved_usd(&self) -> Option<f64> {
-        let cost = self.0.current_key()?.cost_usd?;
-        cost.trim().parse::<f64>().ok().filter(|c| c.is_finite() && *c >= 0.0)
-    }
 }
 
 impl AssistantHost for FantasticoHost {
+    fn service(&self) -> cadcraft_ui_egui::assistant::Service {
+        cadcraft_ui_egui::assistant::Service {
+            name: "FANTASTICO".into(),
+            url: "https://artcraft.fantastico.cc".into(),
+            key_prefix: "ck-fant-".into(),
+        }
+    }
+
     fn has_key(&self) -> bool {
         self.store.is_set()
     }
@@ -188,7 +196,7 @@ impl AssistantHost for FantasticoHost {
     }
 
     fn balance(&self) -> Option<f64> {
-        self.client().ok()?.balance().ok().map(|b| b.remaining_usd)
+        self.client().ok()?.balance().ok().map(|b| Self::credit(&b))
     }
 
     fn event(&self, event: &AssistantEvent) {

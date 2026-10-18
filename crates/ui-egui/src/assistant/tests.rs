@@ -14,29 +14,18 @@ struct FakeHost {
     key: AtomicBool,
     replies: Mutex<Vec<Value>>,
     events: Mutex<Vec<AssistantEvent>>,
-    /// What the endpoint holds on the account for a conversation, like a prepaid key's block.
-    reserved: Mutex<Option<f64>>,
 }
 
 impl FakeHost {
     fn new(replies: Vec<Value>) -> Arc<Self> {
-        Arc::new(Self { key: AtomicBool::new(false), replies: Mutex::new(replies), events: Mutex::default(), reserved: Mutex::new(None) })
-    }
-}
-
-/// A scripted endpoint that also reports a block set aside on the account.
-struct Reserving(Scripted, Option<f64>);
-
-impl Provider for Reserving {
-    fn complete(&mut self, request: &Value) -> Result<Value, String> {
-        self.0.complete(request)
-    }
-    fn reserved_usd(&self) -> Option<f64> {
-        self.1
+        Arc::new(Self { key: AtomicBool::new(false), replies: Mutex::new(replies), events: Mutex::default() })
     }
 }
 
 impl AssistantHost for FakeHost {
+    fn service(&self) -> Service {
+        Service { name: "Fake Accounts".into(), url: "https://accounts.example/top-up/".into(), key_prefix: "ck-fant-".into() }
+    }
     fn has_key(&self) -> bool {
         self.key.load(Ordering::SeqCst)
     }
@@ -66,7 +55,7 @@ impl AssistantHost for FakeHost {
     }
     fn provider(&self) -> Result<(Box<dyn Provider + Send>, String), String> {
         let replies = std::mem::take(&mut *self.replies.lock().unwrap());
-        Ok((Box::new(Reserving(Scripted::new(replies), *self.reserved.lock().unwrap())), "m".into()))
+        Ok((Box::new(Scripted::new(replies)), "m".into()))
     }
     fn balance(&self) -> Option<f64> {
         Some(0.03)
@@ -131,7 +120,7 @@ fn onboarding_then_a_turn_draws_as_one_undo_step() {
     assert_eq!(app.assistant.balance, Some(0.03));
     assert!(app.assistant.messages.iter().any(|m| m.role == Role::Assistant && m.text == "Fatto."));
     // The chat keeps what was said, not what was run: no command, no JSON, no status line left.
-    assert!(app.assistant.messages.iter().all(|m| matches!(m.role, Role::User | Role::Assistant)), "{:?}", app.assistant.messages);
+    assert!(app.assistant.messages.iter().all(|m| matches!(m.role, Role::User | Role::Assistant | Role::Link)), "{:?}", app.assistant.messages);
     assert!(app.assistant.messages.iter().all(|m| !m.text.contains("circle") && !m.text.contains('{')));
     assert_eq!(app.assistant.activity, None);
     // The undo grouping stays off the command line.
@@ -171,41 +160,30 @@ fn the_status_line_reads_as_plain_words_and_goes_away_when_the_turn_ends() {
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to save the drawing to C:/plans/bracket.dxf."));
     update(&mut a, Update::Confirm { name: "new_drawing".into(), args: json!({}), reply: channel().0 });
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to start a new drawing: the current one will be closed."));
-    assert!(update(&mut a, Update::Done { conversation: None, error: None, balance: None, reserved: 0.0, stopped: false, ran_tools: true }));
+    assert!(update(&mut a, Update::Done { conversation: None, error: None, balance: None, stopped: false, ran_tools: true }));
     assert!(!a.busy);
     assert_eq!(a.activity, None);
     assert!(a.confirm.is_none());
     assert!(a.messages.is_empty(), "nothing that was run is kept in the chat");
     // Out of steps: one short notice, in words.
-    assert!(!update(&mut a, Update::Done { conversation: None, error: None, balance: None, reserved: 0.0, stopped: true, ran_tools: false }));
+    assert!(!update(&mut a, Update::Done { conversation: None, error: None, balance: None, stopped: true, ran_tools: false }));
     assert_eq!(a.messages.len(), 1);
     assert!(a.messages[0].role == Role::Notice && a.messages[0].text.contains("ran out of steps"));
 }
 
 #[test]
-fn the_credit_counts_what_the_conversation_set_aside_so_a_first_message_costs_nothing_visible() {
-    // The account service says 0.03 is spendable while the key holds a 5.00 block.
-    let host = FakeHost::new(vec![text_reply("Ciao!")]);
-    host.key.store(true, Ordering::SeqCst);
-    *host.reserved.lock().unwrap() = Some(5.0);
-    let mut app = app_with(host);
+fn without_a_key_the_greeting_links_to_the_account_site_and_the_key_stays_secret() {
+    let mut app = app_with(FakeHost::new(vec![]));
+    open(&mut app).unwrap();
+    // The service's name, key prefix and site come from the host, never from the panel.
+    let greeting = app.assistant.messages.iter().find(|m| m.text.contains("To start")).expect("the onboarding text");
+    assert!(greeting.text.contains("Fake Accounts") && greeting.text.contains("ck-fant-"), "{}", greeting.text);
+    let link = app.assistant.messages.iter().find(|m| m.role == Role::Link).expect("a link to the account site");
+    assert!(link.text.ends_with("accounts.example/top-up"), "{}", link.text);
+    // The panel renders with the link and the card, and nothing in it is the key.
     let ctx = egui::Context::default();
-    app.assistant.input = "ciao".into();
-    send(&mut app, &ctx);
-    pump(&mut app, &ctx);
-    let near = |b: Option<f64>| b.is_some_and(|b| (b - 5.03).abs() < 1e-9);
-    assert!(near(app.assistant.balance) && app.assistant.reserved == 5.0, "{:?}", app.assistant.balance);
-    // A refresh between turns counts it too.
-    app.assistant.balance = Some(0.0);
-    refresh_balance(&mut app.assistant, &ctx);
-    for _ in 0..200 {
-        tick(&mut app, &ctx);
-        if !app.assistant.balance_busy {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(5));
-    }
-    assert!(near(app.assistant.balance), "{:?}", app.assistant.balance);
+    let mut out = ctx.run_ui(egui::RawInput::default(), |ui| show(&mut app, ui));
+    out.textures_delta.clear();
 }
 
 #[test]

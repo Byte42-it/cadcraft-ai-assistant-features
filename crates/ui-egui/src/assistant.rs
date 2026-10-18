@@ -33,6 +33,24 @@ const MAX_MESSAGES: usize = 300;
 /// doesn't fill with "Group begun".
 const UNDO_BEGIN: &str = "assistant.undo.begin";
 const UNDO_END: &str = "assistant.undo.end";
+/// The account service behind the assistant, as the panel names it. The panel itself doesn't
+/// know which service that is: the host says.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Service {
+    /// The service's name, as shown to the user.
+    pub name: String,
+    /// Where an account key comes from and where the credit is topped up.
+    pub url: String,
+    /// What an account key starts with, for the onboarding text.
+    pub key_prefix: String,
+}
+
+impl Service {
+    /// The site as it reads in a sentence: the URL without its scheme and trailing slash.
+    fn site(&self) -> &str {
+        self.url.trim_start_matches("https://").trim_start_matches("http://").trim_end_matches('/')
+    }
+}
 
 /// A connected account — never the key.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,6 +146,8 @@ impl Language {
 /// The host side of the assistant. Nothing here returns the key: the interface can store one or
 /// replace it with a new one, never read it.
 pub trait AssistantHost: Send + Sync {
+    /// The account service: its name, its site and what its keys look like.
+    fn service(&self) -> Service;
     fn has_key(&self) -> bool;
     /// Check `key` with the account service and store it, if no key is stored yet. Blocking: runs
     /// on a worker thread.
@@ -151,6 +171,8 @@ enum Role {
     Assistant,
     Notice,
     Error,
+    /// A link to the account site; the text is its label.
+    Link,
 }
 
 #[derive(Clone, Debug)]
@@ -202,8 +224,6 @@ enum Update {
         conversation: Option<Conversation>,
         error: Option<String>,
         balance: Option<f64>,
-        /// What the conversation's endpoint has set aside and not spent (already in `balance`).
-        reserved: f64,
         /// The step budget ran out; the reply says what was done.
         stopped: bool,
         /// Tools ran (or the turn failed mid-way): a command may be left waiting for input.
@@ -242,9 +262,6 @@ pub struct Assistant {
     balance: Option<f64>,
     /// The credit is being read again (a click on it).
     balance_busy: bool,
-    /// Credit set aside by the conversation's endpoint and not spent yet: counted in `balance`,
-    /// so a first message doesn't look like it cost a whole block.
-    reserved: f64,
     /// The fresh-start question is up.
     clear_asked: bool,
     /// The reply language, kept in the preferences.
@@ -276,7 +293,6 @@ impl Default for Assistant {
             account_requested: false,
             balance: None,
             balance_busy: false,
-            reserved: 0.0,
             clear_asked: false,
             language: Language::default(),
             model: None,
@@ -338,8 +354,19 @@ impl Assistant {
             Role::Assistant,
             crate::tl!("Hi! I'm the AI Assistant. Tell me what to draw or change in the drawing, and I'll do it with CADCraft's commands."),
         );
-        if self.host.as_ref().is_some_and(|h| !h.has_key()) {
-            self.push(Role::Assistant, crate::tl!("To start, connect your FANTASTICO account: paste its account key (it starts with ck-fant-). The key stays on this computer and is never shown again."));
+        if let Some(host) = self.host.clone()
+            && !host.has_key()
+        {
+            let s = host.service();
+            self.push(
+                Role::Assistant,
+                crate::tf!(
+                    "To start, connect your {service} account: paste its account key (it starts with {prefix}). The key stays on this computer and is never shown again.",
+                    service = s.name,
+                    prefix = s.key_prefix
+                ),
+            );
+            self.push(Role::Link, crate::tf!("Get an account key or top up your credit at {site}", site = s.site()));
         }
     }
 }
@@ -519,8 +546,8 @@ fn send(app: &mut CadApp, ctx: &egui::Context) {
     let chosen = a.model.clone();
     let (updates, tools, ctx) = (a.updates_tx.clone(), a.tools_tx.clone(), ctx.clone());
     let started = spawn(move || {
-        let done = |conversation, error, balance, reserved, stopped, ran_tools| {
-            let _ = updates.send(Update::Done { conversation, error, balance, reserved, stopped, ran_tools });
+        let done = |conversation, error, balance, stopped, ran_tools| {
+            let _ = updates.send(Update::Done { conversation, error, balance, stopped, ran_tools });
             ctx.request_repaint();
         };
         let mut conv = match conversation {
@@ -530,7 +557,7 @@ fn send(app: &mut CadApp, ctx: &egui::Context) {
                     let model = chosen.unwrap_or(suggested);
                     Conversation { agent: Agent::new(Config { instructions, ..Config::new(model) }), provider }
                 }
-                Err(e) => return done(None, Some(e), None, 0.0, false, false),
+                Err(e) => return done(None, Some(e), None, false, false),
             },
         };
         let mut backend = UiBackend { tx: tools, ctx: ctx.clone() };
@@ -545,11 +572,7 @@ fn send(app: &mut CadApp, ctx: &egui::Context) {
             Err(cadcraft_assistant::Error::Provider(m)) => (Some(m), false, true),
             Err(other) => (Some(other.to_string()), false, true),
         };
-        // The credit as the user sees it: what the account service says is spendable, plus the
-        // block this conversation's key holds and hasn't spent.
-        let reserved = conv.provider.reserved_usd().unwrap_or(0.0);
-        let balance = host.balance().map(|b| b + reserved);
-        done(Some(conv), error, balance, reserved, stopped, ran_tools);
+        done(Some(conv), error, host.balance(), stopped, ran_tools);
     });
     if let Err(e) = started {
         let a = &mut app.assistant;
@@ -586,11 +609,9 @@ fn refresh_balance(a: &mut Assistant, ctx: &egui::Context) {
         return;
     }
     a.balance_busy = true;
-    let reserved = a.conversation.as_ref().and_then(|c| c.provider.reserved_usd()).unwrap_or(0.0);
-    a.reserved = reserved;
     let (tx, ctx) = (a.updates_tx.clone(), ctx.clone());
     let started = spawn(move || {
-        let _ = tx.send(Update::Balance(host.balance().map(|b| b + reserved)));
+        let _ = tx.send(Update::Balance(host.balance()));
         ctx.request_repaint();
     });
     if started.is_err() {
@@ -744,11 +765,10 @@ fn update(a: &mut Assistant, u: Update) -> bool {
                 let _ = old.send(false);
             }
         }
-        Update::Done { conversation, error, balance, reserved, stopped, ran_tools } => {
+        Update::Done { conversation, error, balance, stopped, ran_tools } => {
             a.busy = false;
             a.activity = None;
             a.conversation = conversation;
-            a.reserved = reserved;
             // The language may have changed while the turn ran.
             let language = a.language;
             a.set_language(language);
@@ -770,7 +790,7 @@ fn update(a: &mut Assistant, u: Update) -> bool {
     false
 }
 
-fn bubble(ui: &mut egui::Ui, m: &Message, t: Tokens) {
+fn bubble(ui: &mut egui::Ui, m: &Message, t: Tokens, account_url: &str) {
     let width = ui.available_width();
     match m.role {
         Role::User | Role::Assistant | Role::Error => {
@@ -791,6 +811,10 @@ fn bubble(ui: &mut egui::Ui, m: &Message, t: Tokens) {
         Role::Notice => {
             ui.add(egui::Label::new(RichText::new(&m.text).font(crate::theme::small()).color(t.text_dim)).wrap());
         }
+        Role::Link => {
+            let r = ui.hyperlink_to(&m.text, account_url).on_hover_text(account_url);
+            crate::control::record_widget(ui, &r, "Account site", "link", None);
+        }
     }
 }
 
@@ -803,6 +827,7 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
         return;
     };
     let has_key = host.has_key();
+    let service = host.service();
     request_account(&mut app.assistant, ui.ctx());
     ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
     // Header: the credit (a click reads it again), a fresh start and the settings — icons, so
@@ -834,20 +859,18 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
                     crate::control::record_widget(ui, &r, "Refresh credit", "button", None);
                     refresh = r.clicked();
                 }
+                // Top up: the account site, in the browser.
+                let card = crate::icons::button(ui, crate::icons::Icon::CreditCard, 18.0, crate::tl!("Top up credit"), false);
+                crate::control::record_widget(ui, &card, "Top up credit", "button", None);
+                if card.clicked() {
+                    ui.ctx().open_url(egui::OpenUrl::new_tab(&service.url));
+                }
                 // The credit takes what is left and is cut short, never run over.
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     let text = crate::tf!("Credit available: {usd} USD", usd = format!("{b:.2}"));
                     let label =
                         egui::Label::new(RichText::new(text).font(crate::theme::small()).color(t.text_dim)).truncate().sense(egui::Sense::click());
-                    let mut hover = crate::tl!("Refresh credit").to_string();
-                    if app.assistant.reserved > 0.0 {
-                        let note = crate::tf!(
-                            "Includes {usd} USD set aside for this conversation and not yet spent.",
-                            usd = format!("{:.2}", app.assistant.reserved)
-                        );
-                        hover = format!("{hover}\n{note}");
-                    }
-                    let r = ui.add(label).on_hover_text(hover);
+                    let r = ui.add(label).on_hover_text(crate::tl!("Refresh credit"));
                     crate::control::record_widget(ui, &r, "Credit available", "button", None);
                     refresh |= r.clicked();
                 });
@@ -868,7 +891,7 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
             // row's unbounded width and runs past the panel's edge.
             egui::Frame::NONE.inner_margin(egui::Margin::symmetric(6, 0)).show(ui, |ui| {
                 for m in &app.assistant.messages {
-                    bubble(ui, m, t);
+                    bubble(ui, m, t, &service.url);
                 }
             });
             // One status line: the spinner and the current action, replaced by the next one and

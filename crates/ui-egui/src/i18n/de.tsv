@@ -1037,7 +1037,7 @@
 # AI Assistant
 	AI Assistant	KI-Assistent
 	Hi! I'm the AI Assistant. Tell me what to draw or change in the drawing, and I'll do it with CADCraft's commands.	Hallo! Ich bin der KI-Assistent. Sagen Sie mir, was ich in der Zeichnung zeichnen oder ändern soll, und ich erledige es mit den Befehlen von CADCraft.
-	To start, connect your FANTASTICO account: paste its account key (it starts with ck-fant-). The key stays on this computer and is never shown again.	Verbinden Sie zuerst Ihr FANTASTICO-Konto: Fügen Sie seinen Kontoschlüssel ein (er beginnt mit ck-fant-). Der Schlüssel bleibt auf diesem Computer und wird nie wieder angezeigt.
+	To start, connect your {service} account: paste its account key (it starts with {prefix}). The key stays on this computer and is never shown again.	Verbinden Sie zuerst Ihr {service}-Konto: Fügen Sie seinen Kontoschlüssel ein (er beginnt mit {prefix}). Der Schlüssel bleibt auf diesem Computer und wird nie wieder angezeigt.
 	Checking the key…	Schlüssel wird geprüft…
 	Connected to account {conto}.	Mit Konto {conto} verbunden.
 	What shall I draw?	Was soll ich zeichnen?
@@ -1090,6 +1090,7 @@
 	Start a new conversation? The messages so far will be cleared.	Neue Unterhaltung beginnen? Die bisherigen Nachrichten werden gelöscht.
 	Keep	Behalten
 	Refresh credit	Guthaben aktualisieren
-	Includes {usd} USD set aside for this conversation and not yet spent.	Enthält {usd} USD, die für diese Unterhaltung zurückgelegt und noch nicht ausgegeben sind.
+	Get an account key or top up your credit at {site}	Einen Kontoschlüssel holen oder Guthaben aufladen: {site}
+	Top up credit	Guthaben aufladen
 	Change key	Schlüssel ändern
 	The account key was changed: now connected to account {conto}.	Der Kontoschlüssel wurde geändert: jetzt mit Konto {conto} verbunden.

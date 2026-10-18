@@ -120,6 +120,8 @@ pub enum Icon {
     Broom,
     /// Read again.
     Refresh,
+    /// Pay: top up a credit.
+    CreditCard,
     Annotation,
     Workspace,
     ChevronDown,
@@ -565,6 +567,13 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, dim: bool) {
         Refresh => {
             pen.arc(12.0, 12.0, 7.0, 20.0, 320.0, b);
             pen.arrow_tip(17.4, 16.5, 0.64, -0.77, b);
+        }
+        CreditCard => {
+            // The card, its magnetic stripe and the signature line.
+            pen.rect(3.0, 6.0, 18.0, 12.0, b);
+            pen.l(3.0, 9.5, 21.0, 9.5);
+            pen.l(3.0, 11.0, 21.0, 11.0);
+            pen.la(6.0, 14.5, 12.0, 14.5);
         }
         Erase => {
             pen.poly(&[(4.0, 16.0), (13.0, 7.0), (19.0, 13.0), (12.0, 20.0), (8.0, 20.0)], true, b);

@@ -1011,7 +1011,7 @@
 # AI Assistant
 	AI Assistant	ИИ-ассистент
 	Hi! I'm the AI Assistant. Tell me what to draw or change in the drawing, and I'll do it with CADCraft's commands.	Здравствуйте! Я ИИ-ассистент. Скажите, что нарисовать или изменить в чертеже, и я сделаю это командами CADCraft.
-	To start, connect your FANTASTICO account: paste its account key (it starts with ck-fant-). The key stays on this computer and is never shown again.	Для начала подключите свой счёт FANTASTICO: вставьте его ключ счёта (он начинается с ck-fant-). Ключ остаётся на этом компьютере и больше не показывается.
+	To start, connect your {service} account: paste its account key (it starts with {prefix}). The key stays on this computer and is never shown again.	Для начала подключите свой счёт {service}: вставьте его ключ счёта (он начинается с {prefix}). Ключ остаётся на этом компьютере и больше не показывается.
 	Checking the key…	Проверка ключа…
 	Connected to account {conto}.	Подключено к счёту {conto}.
 	What shall I draw?	Что нарисовать?
@@ -1064,6 +1064,7 @@
 	Start a new conversation? The messages so far will be cleared.	Начать новый разговор? Сообщения до этого момента будут удалены.
 	Keep	Оставить
 	Refresh credit	Обновить кредит
-	Includes {usd} USD set aside for this conversation and not yet spent.	Включает {usd} USD, отложенные для этого разговора и ещё не потраченные.
+	Get an account key or top up your credit at {site}	Получить ключ счёта или пополнить кредит: {site}
+	Top up credit	Пополнить кредит
 	Change key	Сменить ключ
 	The account key was changed: now connected to account {conto}.	Ключ счёта изменён: теперь подключено к счёту {conto}.

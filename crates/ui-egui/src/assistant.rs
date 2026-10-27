@@ -970,7 +970,7 @@ fn clear_question(app: &mut CadApp, ctx: &egui::Context) {
     }
     let t = Tokens::get();
     let mut answer = None;
-    let modal = egui::Modal::new(egui::Id::new("assistant-clear")).show(ctx, |ui| {
+    let modal = egui::Modal::new(egui::Id::unique("assistant-clear")).show(ctx, |ui| {
         ui.set_width(320.0);
         ui.label(RichText::new(crate::tl!("New conversation")).strong());
         ui.add_space(4.0);
@@ -1008,7 +1008,7 @@ fn settings_window(app: &mut CadApp, ctx: &egui::Context, has_key: bool) {
     let mut open = true;
     let mut change = false;
     egui::Window::new(crate::tl!("AI Assistant settings"))
-        .id(egui::Id::new("assistant-settings"))
+        .id(egui::Id::unique("assistant-settings"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)

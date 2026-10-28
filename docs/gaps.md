@@ -143,7 +143,7 @@ Detail: [localization-parity.md](localization-parity.md).
 | # | Gap | Est. |
 |---|---|---|
 | A1 | Smart Blocks equivalents (placement suggestions, replace, detect and convert, search), using local open models | 25–50 + model licensing |
-| A2 | In-app assistant (AutoCAD has Autodesk Assistant): **landed** as Window ▸ AI Assistant and `cadcraft-cli ask`, an agent over the MCP tools on any model of a FANTASTICO account through the shared Craft AI layer (key in the system keychain, agreement before the first request, one undo step per turn), see [assistant.md](assistant.md). Missing: streamed replies, a Stop button, the web build, the layer's other providers | 3–6 |
+| A2 | In-app assistant (AutoCAD has Autodesk Assistant): **landed** as Window ▸ AI Assistant and `cadcraft-cli ask`, an agent over the MCP tools on any model of a FANTASTICO account. The palette goes through the shared Craft AI layer (key in the system keychain, agreement before the first request, one undo step per turn); the CLI reads `$FANTASTICO_KEY` and calls the account directly, see [assistant.md](assistant.md). Missing: streamed replies, a Stop button, the web build, the layer's other providers | 3–6 |
 | A3 | Markup Assist (import markups from PDFs/images) | 10–20 |
 
 ## Revision history

@@ -81,6 +81,35 @@ fn the_conversation_carries_over_to_the_next_turn() {
     assert_eq!(agent.messages().len(), 1);
 }
 
+/// A command line, a script or `execute` that would open, start or save a drawing asks the same
+/// question as the tool for it, by command name or alias; ordinary drawing commands ask nothing.
+#[test]
+fn protected_commands_need_confirmation_by_any_tool() {
+    let cases = [
+        ("execute", json!({"command": "open", "params": {"path": "x.dxf"}}), Some("open")),
+        ("execute", json!({"command": "QSAVE"}), Some("save")),
+        ("command_line", json!({"text": "_qnew"}), Some("new_drawing")),
+        ("command_line", json!({"text": "saveas 2018 out.dxf"}), Some("save")),
+        (
+            "script",
+            json!({"text": "circle 0,0 5
+._save out.dxf"}),
+            Some("save"),
+        ),
+        ("script", json!({"text": "(command \"open\" \"x.dxf\")"}), Some("open")),
+        ("command_line", json!({"text": "circle 0,0 5"}), None),
+        ("execute", json!({"command": "line", "params": {"from": [0, 0], "to": [1, 1]}}), None),
+    ];
+    for (tool, args, asked) in cases {
+        let mut b = Headless::default();
+        let mut log = Log::default();
+        let mut p = Scripted::new([tool_reply(&[("a", tool, args.clone())]), text_reply("ok")]);
+        Agent::new(Config::new("m")).send(&mut p, &mut b, "go", &mut log).unwrap();
+        assert_eq!(log.asked, asked.into_iter().collect::<Vec<_>>(), "{tool} {args}");
+        assert_eq!(log.events.contains(&format!("declined {tool}")), asked.is_some(), "{tool} {args}");
+    }
+}
+
 #[test]
 fn tools_that_replace_the_drawing_or_write_files_need_confirmation() {
     cadcraft_engine::cmd::file::set_io(cadcraft_engine::cmd::file::IoHooks {
@@ -191,7 +220,7 @@ fn a_model_that_never_stops_calling_tools_is_stopped() {
 }
 
 #[test]
-fn out_of_steps_the_model_gets_one_call_without_tools_to_say_what_it_did() {
+fn out_of_steps_the_model_gets_one_call_with_tools_refused_to_say_what_it_did() {
     let mut p = Scripted::new([
         tool_reply(&[("a", "list_commands", json!({"filter": "zz"}))]),
         tool_reply(&[("b", "list_commands", json!({"filter": "zz"}))]),
@@ -203,8 +232,9 @@ fn out_of_steps_the_model_gets_one_call_without_tools_to_say_what_it_did() {
     let mut agent = Agent::new(cfg);
     let turn = agent.send(&mut p, &mut Headless::default(), "loop", &mut ()).unwrap();
     assert_eq!(turn, Turn { reply: "Ho elencato i comandi; non ho disegnato nulla.".into(), steps: 3, tool_calls: 2, stopped: true });
-    // The wrap-up request offers no tools; the nudge stays out of the history, the answer goes in.
-    assert!(p.requests[2].get("tools").is_none());
+    // The wrap-up request refuses tools; the nudge stays out of the history, the answer goes in.
+    assert_eq!(p.requests[2]["tool_choice"], "none");
+    assert!(p.requests[2]["tools"].is_array());
     assert!(agent.messages().iter().all(|m| m["content"].as_str().is_none_or(|c| !c.contains("steps allowed"))));
     assert_eq!(agent.messages().last().unwrap()["content"], "Ho elencato i comandi; non ho disegnato nulla.");
     // The conversation carries on.

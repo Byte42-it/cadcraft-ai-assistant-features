@@ -9,8 +9,8 @@ use serde_json::{Map, Value, json};
 use crate::provider::Provider;
 
 /// The most tool-calling model calls one turn may make (the default and the cap of
-/// [`Config::max_steps`]). Past it the model gets one last call, without tools, to say what it
-/// did.
+/// [`Config::max_steps`]). Past it the model gets one last call, with tools refused, to say what
+/// it did.
 pub const MAX_STEPS: usize = 20;
 /// Tool calls taken from one model reply; the rest are dropped.
 const MAX_CALLS_PER_STEP: usize = 16;
@@ -29,6 +29,10 @@ const TOOLS: &[&str] =
 
 /// Tools that replace the drawing or write files: they run only when the user confirms.
 const CONFIRM: &[&str] = &["new_drawing", "open", "save"];
+
+/// The engine commands those tools stand for, and the tool whose confirmation each one asks:
+/// `command_line`, `script` and `execute` reach them too.
+const PROTECTED: &[(&str, &str)] = &[("new", "new_drawing"), ("open", "open"), ("qsave", "save"), ("saveas", "save")];
 
 const SYSTEM: &str = "You are the assistant inside CADCraft, a 2D/3D CAD drafting app that works like AutoCAD. \
 You carry out the user's drafting requests on the active drawing with your tools. Coordinates are drawing units, y up.\n\
@@ -108,7 +112,7 @@ pub struct Turn {
     /// Tools run (or declined).
     pub tool_calls: usize,
     /// The step budget ran out: `reply` is the model's account of what it did and what is left,
-    /// made without tools.
+    /// made with tools refused.
     pub stopped: bool,
 }
 
@@ -240,11 +244,12 @@ impl Agent {
                 self.messages.push(json!({"role": "tool", "tool_call_id": call.id, "content": result}));
             }
         }
-        // Out of steps: the tools go away and the model gets one last call to tell the user what
-        // it did and what is left. The nudge stays out of the history; only the answer goes in.
+        // Out of steps: the model gets one last call, with tools refused, to tell the user what it
+        // did and what is left. The tools stay defined: some providers refuse a history of tool
+        // calls without them. The nudge stays out of the history; only the answer goes in.
         let mut messages = self.messages.clone();
         messages.push(json!({"role": "user", "content": WRAP_UP}));
-        let request = json!({"model": self.config.model, "messages": messages});
+        let request = json!({"model": self.config.model, "messages": messages, "tools": tools, "tool_choice": "none"});
         let response = provider.complete(&request).map_err(Error::Provider)?;
         let (text, calls) = parse_reply(&response)?;
         match text.filter(|t| !t.trim().is_empty()) {
@@ -330,7 +335,9 @@ fn run_tool(backend: &mut dyn Backend, call: &Call, observer: &mut dyn Observer)
         Err(e) => (false, format!("error: {e}")),
         Ok(args) => {
             observer.event(Event::ToolCall { name, arguments: args });
-            if CONFIRM.contains(&name) && !observer.confirm(name, args) {
+            if let Some(asked) = needs_confirmation(name, args)
+                && !observer.confirm(asked, args.get("params").filter(|_| name == "execute").unwrap_or(args))
+            {
                 observer.event(Event::Declined { name });
                 return format!("The user declined `{name}`. Don't retry it; ask the user what they want instead.");
             }
@@ -343,6 +350,31 @@ fn run_tool(backend: &mut dyn Backend, call: &Call, observer: &mut dyn Observer)
     let text = truncate(&text, MAX_RESULT_CHARS);
     observer.event(Event::ToolResult { name, ok, text: &text });
     text
+}
+
+/// The tool whose confirmation a call needs, if it replaces the drawing or writes a file: one of
+/// [`CONFIRM`], or a command line, script or `execute` that names a [`PROTECTED`] command by its
+/// id or an alias. Any word of a line or script counts (a script's spaces are Enters), so a word
+/// that is only text asks too: asking once too often beats writing a file unasked.
+fn needs_confirmation(name: &str, args: &Value) -> Option<&'static str> {
+    if let Some(tool) = CONFIRM.iter().find(|t| **t == name) {
+        return Some(tool);
+    }
+    let protected = |word: &str| {
+        // `_open`, `._qsave` and `'new` are the same commands.
+        let id = cadcraft_engine::cmd::resolve_alias(word.trim_start_matches(['_', '.', '\'', '-']));
+        PROTECTED.iter().find(|(c, _)| *c == id).map(|(_, tool)| *tool)
+    };
+    match name {
+        "execute" => args.get("command").and_then(Value::as_str).and_then(protected),
+        "command_line" | "script" => args
+            .get("text")
+            .and_then(Value::as_str)?
+            .split(|c: char| c.is_whitespace() || matches!(c, '(' | ')' | '"' | ';'))
+            .filter(|w| !w.is_empty())
+            .find_map(protected),
+        _ => None,
+    }
 }
 
 /// The text blocks of an MCP tool result.

@@ -160,6 +160,28 @@ mod tests {
         }
     }
 
+    /// `--save` or `--export` onto the `--open` file needs `--in-place`, as in `run`.
+    #[test]
+    fn ask_wont_replace_the_open_file_unasked() {
+        let dir = std::env::temp_dir().join(format!("cadcraft-ask-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("in.dxf");
+        std::fs::write(
+            &input, "0
+EOF
+",
+        )
+        .unwrap();
+        let input = input.to_string_lossy().to_string();
+        let args = |extra: &[&str]| -> Vec<OsString> {
+            ["ask", "p", "--open", input.as_str(), "--save", input.as_str()].iter().chain(extra).map(OsString::from).collect()
+        };
+        let e = parse(&args(&[])).err().unwrap();
+        assert!(e.to_string().contains("--in-place"), "{e}");
+        assert!(parse(&args(&["--in-place"])).is_ok());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// No key and a blank prompt are refused before anything is opened or sent.
     #[test]
     fn ask_needs_a_prompt_and_a_key() {

@@ -825,9 +825,12 @@ fn update(a: &mut Assistant, u: Update) -> bool {
             a.busy = false;
             a.activity = None;
             a.conversation = conversation;
-            // The language may have changed while the turn ran.
+            // The language and the model may have changed while the turn ran.
             let language = a.language;
             a.set_language(language);
+            if let (Some(m), Some(c)) = (&a.model, &mut a.conversation) {
+                c.agent.set_model(m.clone());
+            }
             if let Some(b) = balance {
                 a.balance = Some(b);
             }

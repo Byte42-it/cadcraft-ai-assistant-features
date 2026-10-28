@@ -113,6 +113,9 @@ pub(crate) struct AskArgs {
     /// Allow new, open and save without asking
     #[arg(long, short)]
     pub(crate) yes: bool,
+    /// Allow an output that is the --open file, replacing the original
+    #[arg(long)]
+    pub(crate) in_place: bool,
     #[arg(long, value_name = "OUT.dxf", help = save_help())]
     pub(crate) save: Option<PathBuf>,
     #[arg(long, value_name = "OUT.png", help = export_help())]
@@ -496,6 +499,10 @@ fn out_is_input(cli: &Cli) -> Option<UsageError> {
             let inputs = r.drawings.iter().filter_map(|d| if let Drawing::File(f) = d { Some(f) } else { None });
             let inputs: Vec<&PathBuf> = inputs.collect();
             [&r.save, &r.export].into_iter().flatten().find(|out| inputs.iter().any(|i| same(i, out))).map(|out| UsageError::OutIsInput(out.clone()))
+        }
+        Command::Ask(a) if !a.in_place => {
+            let input = a.open.as_deref()?;
+            [&a.save, &a.export].into_iter().flatten().find(|out| same(input, out)).map(|out| UsageError::OutIsInput(out.clone()))
         }
         _ => None,
     }

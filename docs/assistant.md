@@ -1,11 +1,11 @@
 # The AI Assistant
 
-> **Last reviewed:** 2026-10-27 · **Last updated:** 2026-10-27 · **Change:** major (first version: the palette, `cadcraft-cli ask`, the shared Craft AI layer)
+> **Last reviewed:** 2026-10-28 · **Last updated:** 2026-10-28 · **Change:** minor (what the agreement covers; confirmations reach command lines and scripts; how `ask` keeps its changes; previously major: first version: the palette, `cadcraft-cli ask`, the shared Craft AI layer)
 
 **Window ▸ AI Assistant** opens a palette where you ask for a drawing change in your own words
 ("draw a 60 mm flange with four holes on a 45 mm circle") and the assistant carries it out with
-CADCraft's own commands, on the active drawing. `cadcraft-cli ask` does the same from a terminal.
-It is the in-app assistant of gap A2 in [gaps.md](gaps.md#ai-features).
+CADCraft's own commands, on the active drawing. `cadcraft-cli ask` does the same from a terminal,
+on a drawing of its own (see [From a terminal](#from-a-terminal)). It is the in-app assistant of gap A2 in [gaps.md](gaps.md#ai-features).
 
 ## How it works
 
@@ -20,7 +20,8 @@ It is the in-app assistant of gap A2 in [gaps.md](gaps.md#ai-features).
   can't. A turn is one undo step: one Undo takes back everything it drew.
 - **The drawing's files are the user's.** `new_drawing`, `open` and `save` replace the drawing or
   write a file, so each asks first in the palette ("The assistant wants to save the drawing to
-  …"); a no is reported to the model, which doesn't retry. `cadcraft-cli ask` asks on a terminal,
+  …"). So does a command line, script or `execute` that names NEW, OPEN, QSAVE or SAVEAS (or an
+  alias of one): any word counts, so a word that is only text asks too. A no is reported to the model, which doesn't retry. `cadcraft-cli ask` asks on a terminal,
   and declines when stdin is not one unless `--yes` is given.
 - **Plain words in the chat.** While a turn runs, a status line says what the assistant is doing
   ("Running CIRCLE…", "Looking at the drawing…"); the chat keeps what was said, never the
@@ -40,7 +41,9 @@ account's prepaid credit. The desktop app reaches it through the shared Craft AI
   interface can store a key or replace it, after FANTASTICO has checked it; it can never read one
   back. An older CADCraft kept the key in `<settings dir>/assistant/fantastico.key`: it moves into
   the keychain the first time the assistant needs it, and the file is removed.
-- **Nothing is sent before the user agrees.** The layer refuses a request to a remote service the
+- **No request goes out before the user agrees.** Connecting the account (checking the key) and
+  reading its models and credit talk to FANTASTICO; the prompt, the drawing and what the commands
+  return do not leave the computer before the agreement. The layer refuses a request to a remote service the
   user hasn't agreed to; the palette asks once, naming the service and its address ("To answer,
   the AI Assistant sends your requests, what it reads from the drawing and what its commands
   return to FANTASTICO (…) and to the provider of the chosen model. Allow this for CADCraft?"),
@@ -52,8 +55,20 @@ account's prepaid credit. The desktop app reaches it through the shared Craft AI
   account's chat models, with their price per million output tokens). The reply language follows
   the user's, or is fixed to English or Italian.
 
+### From a terminal
+
 `cadcraft-cli ask` reads the key from `$FANTASTICO_KEY` and calls the account directly with
-`fantastico-sdk`, without the layer: it has no keychain or agreement to keep.
+`fantastico-sdk`, without the layer: it has no keychain or agreement to keep. It works on a
+session of its own, not on the desktop's drawing: `--open` starts from a file (`--sample` and
+`--metric` from the sample or an empty metric drawing), and the changes are kept only by
+`--save` (or `--export` for an image) or a save the assistant was allowed to make; otherwise they
+end with the command.
+
+```sh
+FANTASTICO_KEY=… cadcraft-cli ask "add four 6 mm holes on a 45 mm circle at 50,30"   --open bracket.dxf --save bracket-holes.dxf
+```
+
+Saving onto the `--open` file needs `--in-place`, as in `run`.
 
 ## Not done yet
 
@@ -67,4 +82,5 @@ account's prepaid credit. The desktop app reaches it through the shared Craft AI
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-28 | minor | What the agreement covers; confirmations reach command lines, scripts and `execute`; how `ask` keeps its changes, and `--in-place` |
 | 2026-10-27 | major | First version: the palette and `cadcraft-cli ask`; the account on the shared Craft AI layer (keychain, agreement, jobs) |

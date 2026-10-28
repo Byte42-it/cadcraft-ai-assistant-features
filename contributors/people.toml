@@ -91,3 +91,8 @@ sync_github_name = false
 real_name = "Robert Lee"
 sync_github_name = true
 
+
+[people.lucabyte42-lab]
+real_name = "Luca Vignali"
+display_name = "Luca Vignali"
+sync_github_name = false

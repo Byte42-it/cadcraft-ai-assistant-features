@@ -929,13 +929,18 @@ impl cadcraft_assistant::Observer for AskObserver {
 fn ask(args: &[String]) -> Result<(), String> {
     let a = parse_ask_args(args)?;
     let key = std::env::var("FANTASTICO_KEY").ok().filter(|v| !v.trim().is_empty()).ok_or("ask needs a FANTASTICO key in $FANTASTICO_KEY")?;
-    let opts = fantastico_sdk::Options { title: "CADCraft".into(), ..fantastico_sdk::Options::default() };
+    let opts = fantastico_sdk::Options {
+        title: "CADCraft".into(),
+        referer: "https://github.com/storytold/cadcraft".into(),
+        ..fantastico_sdk::Options::default()
+    };
     let client = fantastico_sdk::Fantastico::new(key, opts).map_err(|e| e.message)?;
-    // The account suggests a model; a project key has none to ask for.
+    // The account suggests a model; without one (a project key, or an account that names none)
+    // the request leaves it empty and the model the key was minted for answers.
     let model = match (&a.model, client.surface()) {
         (Some(m), _) => m.clone(),
-        (None, fantastico_sdk::Surface::Edge) => client.config().map_err(|e| e.message)?.model,
-        (None, fantastico_sdk::Surface::Runtime) => fantastico_sdk::DEFAULT_MODEL.to_string(),
+        (None, fantastico_sdk::Surface::Edge) => client.config().map_err(|e| e.message)?.model.unwrap_or_default(),
+        (None, fantastico_sdk::Surface::Runtime) => String::new(),
     };
     let mut s = Session::empty();
     if a.sample {

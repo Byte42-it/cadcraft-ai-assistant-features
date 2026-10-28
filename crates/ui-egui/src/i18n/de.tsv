@@ -1102,3 +1102,5 @@
 	Top up credit	Guthaben aufladen
 	Change key	Schlüssel ändern
 	The account key was changed: now connected to account {conto}.	Der Kontoschlüssel wurde geändert: jetzt mit Konto {conto} verbunden.
+	To answer, the AI Assistant sends your requests, what it reads from the drawing and what its commands return to {service} ({destination}) and to the provider of the chosen model. Allow this for CADCraft?	Um zu antworten, sendet der KI-Assistent Ihre Anfragen, was er aus der Zeichnung liest, und was seine Befehle zurückgeben, an {service} ({destination}) und an den Anbieter des gewählten Modells. Für CADCraft erlauben?
+	Nothing was sent: the AI Assistant needs your agreement first.	Es wurde nichts gesendet: Der KI-Assistent braucht zuerst Ihre Zustimmung.

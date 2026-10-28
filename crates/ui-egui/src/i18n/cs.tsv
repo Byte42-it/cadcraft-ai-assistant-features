@@ -1285,3 +1285,5 @@ menu	Modify	Modifikace
 	Top up credit	Dobít kredit
 	Change key	Změnit klíč
 	The account key was changed: now connected to account {conto}.	Klíč účtu byl změněn: nyní připojeno k účtu {conto}.
+	To answer, the AI Assistant sends your requests, what it reads from the drawing and what its commands return to {service} ({destination}) and to the provider of the chosen model. Allow this for CADCraft?	Aby mohl odpovědět, Asistent AI odesílá vaše požadavky, to, co přečte z výkresu, a to, co vrátí jeho příkazy, do {service} ({destination}) a poskytovateli zvoleného modelu. Povolit to pro CADCraft?
+	Nothing was sent: the AI Assistant needs your agreement first.	Nic nebylo odesláno: Asistent AI nejprve potřebuje váš souhlas.

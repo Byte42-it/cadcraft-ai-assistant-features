@@ -40,7 +40,7 @@ log = "0.4"
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 rayon = "1"
 # The AI Assistant's model endpoint (desktop app and CLI only).
-fantastico-sdk = "0.1"
+fantastico-sdk = "0.2"
 
 # rendering / formats
 tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd", "png-format"] }

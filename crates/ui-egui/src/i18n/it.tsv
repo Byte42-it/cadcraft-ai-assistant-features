@@ -1425,3 +1425,5 @@ menu	Modify	Edita
 	Top up credit	Ricarica il credito
 	Change key	Cambia chiave
 	The account key was changed: now connected to account {conto}.	La chiave di conto è stata cambiata: ora collegato al conto {conto}.
+	To answer, the AI Assistant sends your requests, what it reads from the drawing and what its commands return to {service} ({destination}) and to the provider of the chosen model. Allow this for CADCraft?	Per rispondere, l'Assistente AI invia le tue richieste, ciò che legge dal disegno e ciò che restituiscono i suoi comandi a {service} ({destination}) e al fornitore del modello scelto. Consentirlo per CADCraft?
+	Nothing was sent: the AI Assistant needs your agreement first.	Non è stato inviato nulla: l'Assistente AI ha prima bisogno del tuo consenso.

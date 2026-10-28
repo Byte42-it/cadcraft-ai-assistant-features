@@ -14,11 +14,21 @@ struct FakeHost {
     key: AtomicBool,
     replies: Mutex<Vec<Value>>,
     events: Mutex<Vec<AssistantEvent>>,
+    /// The host asks for the user's agreement until it is given.
+    wants_consent: AtomicBool,
+    /// How many conversations were started (each asks `provider`).
+    providers: std::sync::atomic::AtomicUsize,
 }
 
 impl FakeHost {
     fn new(replies: Vec<Value>) -> Arc<Self> {
-        Arc::new(Self { key: AtomicBool::new(false), replies: Mutex::new(replies), events: Mutex::default() })
+        Arc::new(Self {
+            key: AtomicBool::new(false),
+            replies: Mutex::new(replies),
+            events: Mutex::default(),
+            wants_consent: AtomicBool::new(false),
+            providers: Default::default(),
+        })
     }
 }
 
@@ -54,6 +64,7 @@ impl AssistantHost for FakeHost {
             .collect())
     }
     fn provider(&self) -> Result<(Box<dyn Provider + Send>, String), String> {
+        self.providers.fetch_add(1, Ordering::SeqCst);
         let replies = std::mem::take(&mut *self.replies.lock().unwrap());
         Ok((Box::new(Scripted::new(replies)), "m".into()))
     }
@@ -62,6 +73,15 @@ impl AssistantHost for FakeHost {
     }
     fn event(&self, event: &AssistantEvent) {
         self.events.lock().unwrap().push(event.clone());
+    }
+    fn consent(&self) -> Option<Consent> {
+        self.wants_consent
+            .load(Ordering::SeqCst)
+            .then(|| Consent { service: "Fake Accounts".into(), destination: "https://accounts.example/api".into() })
+    }
+    fn agree(&self) -> Result<(), String> {
+        self.wants_consent.store(false, Ordering::SeqCst);
+        Ok(())
     }
 }
 
@@ -379,4 +399,111 @@ fn changing_the_key_switches_account_and_starts_a_new_conversation() {
         std::thread::sleep(Duration::from_millis(5));
     }
     assert!(matches!(app.assistant.settings.result, Some(Err(_))));
+}
+
+/// Nothing leaves the computer before the user agrees: a no sends nothing and says why, a yes is
+/// asked once and the turn goes on.
+#[test]
+fn the_first_request_waits_for_the_users_agreement() {
+    let host = FakeHost::new(vec![text_reply("Eccomi.")]);
+    host.key.store(true, Ordering::SeqCst);
+    host.wants_consent.store(true, Ordering::SeqCst);
+    let mut app = app_with(host.clone());
+    let ctx = egui::Context::default();
+
+    // `pump` answers every question with a no.
+    app.assistant.input = "disegna un cerchio".into();
+    send(&mut app, &ctx);
+    pump(&mut app, &ctx);
+    assert_eq!(host.providers.load(Ordering::SeqCst), 0, "no conversation was started");
+    assert!(app.assistant.messages.iter().any(|m| m.role == Role::Error && m.text.contains("agreement")), "{:?}", app.assistant.messages);
+
+    // A yes: the question names the service and where the requests go, and the turn runs.
+    app.assistant.input = "disegna un cerchio".into();
+    send(&mut app, &ctx);
+    let mut asked = None;
+    for _ in 0..1000 {
+        tick(&mut app, &ctx);
+        if let Some((question, reply)) = app.assistant.confirm.take() {
+            asked = Some(question);
+            let _ = reply.send(true);
+        }
+        if !app.assistant.busy {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let asked = asked.unwrap();
+    assert!(asked.contains("Fake Accounts") && asked.contains("https://accounts.example/api"), "{asked}");
+    assert!(app.assistant.messages.iter().any(|m| m.text == "Eccomi."));
+    assert!(host.consent().is_none(), "the agreement is recorded");
+}
+
+/// The palette drawn in the window: the greeting and the credit, then the agreement question
+/// before the first request, then the reply. With `CADCRAFT_ASSISTANT_SHOTS=<dir>` each stage is
+/// also rendered to a PNG there.
+#[test]
+fn the_palette_draws_its_greeting_the_agreement_and_the_reply() {
+    use egui_kittest::Harness;
+    use egui_kittest::kittest::{NodeT, Queryable};
+
+    let shots = std::env::var_os("CADCRAFT_ASSISTANT_SHOTS").map(std::path::PathBuf::from);
+    let host = FakeHost::new(vec![text_reply("Done: a circle of radius 5 at the origin.")]);
+    host.key.store(true, Ordering::SeqCst);
+    host.wants_consent.store(true, Ordering::SeqCst);
+    let mut app = CadApp::new(Session::default(), Services::default());
+    app.ui.start_tab = false;
+    app.ui.in_window_menu = false;
+    app.assistant.set_host(host);
+    let builder = Harness::builder().with_size(egui::vec2(1280.0, 800.0));
+    let builder = if shots.is_some() { builder.wgpu() } else { builder };
+    let mut h = builder.build_ui_state(
+        |ui, app: &mut CadApp| {
+            app.logic(&ui.ctx().clone());
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(5);
+    // egui gives a label's text as the node's value.
+    let shows = |h: &Harness<'_, CadApp>, text: &str| {
+        h.root().get_all(egui_kittest::kittest::by()).any(|n| {
+            let node = n.accesskit_node();
+            node.label().is_some_and(|l| l.contains(text)) || node.value().is_some_and(|v| v.contains(text))
+        })
+    };
+    let until = |h: &mut Harness<'_, CadApp>, text: &str| {
+        for _ in 0..400 {
+            h.run_steps(2);
+            if shows(h, text) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("the palette never showed {text:?}");
+    };
+    let shot = |h: &mut Harness<'_, CadApp>, name: &str| {
+        if let Some(dir) = &shots {
+            std::fs::create_dir_all(dir).unwrap();
+            h.render().unwrap().save(dir.join(name)).unwrap();
+        }
+    };
+
+    h.state_mut().run("ui.panel.assistant", json!({})).unwrap();
+    until(&mut h, "Credit available: 0.50 USD");
+    assert!(shows(&h, "Hi! I'm the AI Assistant"));
+    shot(&mut h, "cadcraft-assistant.png");
+
+    h.state_mut().assistant.input = "draw a circle of radius 5 at the origin".into();
+    let ctx = h.ctx.clone();
+    send(h.state_mut(), &ctx);
+    until(&mut h, "Allow this for CADCraft?");
+    assert!(shows(&h, "Fake Accounts (https://accounts.example/api)"));
+    shot(&mut h, "cadcraft-assistant-consent.png");
+
+    assert!(h.query_by_label("Allow").is_some() && h.query_by_label("Decline").is_some());
+    let (_, reply) = h.state_mut().assistant.confirm.take().unwrap();
+    reply.send(true).unwrap();
+    until(&mut h, "Done: a circle of radius 5 at the origin.");
+    shot(&mut h, "cadcraft-assistant-reply.png");
 }

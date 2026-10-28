@@ -383,8 +383,13 @@ fn main() -> eframe::Result {
                     log::warn!("no LISP support folder {}: {e}", support.display());
                 }
                 app.session.set_lisp_support_dir(Some(support));
-                // Window ▸ AI Assistant: its account key lives in the settings directory.
-                app.assistant.set_host(std::sync::Arc::new(assistant_host::FantasticoHost::new(&dir)));
+                // Window ▸ AI Assistant, on the shared Craft AI layer: the account is a connection
+                // every Craft app shares, its key in the system keychain. An older key file in the
+                // settings directory moves there the first time it is needed.
+                match assistant_host::LayerHost::new(&dir) {
+                    Ok(host) => app.assistant.set_host(std::sync::Arc::new(host)),
+                    Err(e) => log::warn!("AI Assistant unavailable: {e}"),
+                }
             }
             app.integrated_titlebar = cfg!(target_os = "macos");
             if surface.present_mode == eframe::wgpu::PresentMode::AutoNoVsync {

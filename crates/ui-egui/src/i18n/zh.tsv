@@ -1407,3 +1407,5 @@
 	Top up credit	充值余额
 	Change key	更改密钥
 	The account key was changed: now connected to account {conto}.	账户密钥已更改：现已连接到账户 {conto}。
+	To answer, the AI Assistant sends your requests, what it reads from the drawing and what its commands return to {service} ({destination}) and to the provider of the chosen model. Allow this for CADCraft?	为了回答，AI 助手会把你的请求、它从图纸中读取的内容以及其命令返回的结果发送到 {service}（{destination}）和所选模型的提供商。允许 CADCraft 这样做吗？
+	Nothing was sent: the AI Assistant needs your agreement first.	未发送任何内容：AI 助手需要先获得你的同意。

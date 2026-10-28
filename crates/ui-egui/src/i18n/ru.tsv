@@ -1076,3 +1076,5 @@
 	Top up credit	Пополнить кредит
 	Change key	Сменить ключ
 	The account key was changed: now connected to account {conto}.	Ключ счёта изменён: теперь подключено к счёту {conto}.
+	To answer, the AI Assistant sends your requests, what it reads from the drawing and what its commands return to {service} ({destination}) and to the provider of the chosen model. Allow this for CADCraft?	Чтобы ответить, ИИ-ассистент отправляет ваши запросы, то, что он читает из чертежа, и то, что возвращают его команды, в {service} ({destination}) и поставщику выбранной модели. Разрешить это для CADCraft?
+	Nothing was sent: the AI Assistant needs your agreement first.	Ничего не отправлено: ИИ-ассистенту сначала нужно ваше согласие.

@@ -1431,3 +1431,5 @@
 	Top up credit	Поповнити кредит
 	Change key	Змінити ключ
 	The account key was changed: now connected to account {conto}.	Ключ рахунку змінено: тепер під'єднано до рахунку {conto}.
+	To answer, the AI Assistant sends your requests, what it reads from the drawing and what its commands return to {service} ({destination}) and to the provider of the chosen model. Allow this for CADCraft?	Щоб відповісти, ШІ-асистент надсилає ваші запити, те, що він читає з креслення, і те, що повертають його команди, до {service} ({destination}) і постачальнику вибраної моделі. Дозволити це для CADCraft?
+	Nothing was sent: the AI Assistant needs your agreement first.	Нічого не надіслано: ШІ-асистенту спершу потрібна ваша згода.

@@ -1282,6 +1282,7 @@ menu	Modify	Modifikace
 	The assistant wants to run a command that writes or reads {path}.	Asistent chce spustit příkaz, který zapisuje nebo čte {path}.
 	The assistant wants to run a command that can write files: {command}	Asistent chce spustit příkaz, který může zapisovat soubory: {command}
 	The assistant wants to run a command that can write files.	Asistent chce spustit příkaz, který může zapisovat soubory.
+	The assistant wants to close a drawing: what isn't saved is lost.	Asistent chce zavřít výkres: neuložené změny se ztratí.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	Asistent vyčerpal kroky tohoto tahu a zastavil se; výkres si ponechá, co udělal.
 	Start a new conversation? The messages so far will be cleared.	Začít novou konverzaci? Dosavadní zprávy budou smazány.
 	Keep	Ponechat

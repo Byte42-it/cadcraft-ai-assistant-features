@@ -661,7 +661,11 @@ impl CadApp {
         }
         // A long AutoLISP routine runs one bounded slice per frame, including hidden web/native
         // ticks; it must not depend on a paint or `RequestPaintWhileHidden`.
-        self.session.lisp_tick();
+        if self.assistant.started_lisp {
+            cadcraft_engine::consent::with(cadcraft_engine::consent::Consent::NONE, || self.session.lisp_tick());
+        } else {
+            self.session.lisp_tick();
+        }
         // Time-based and idempotent by its own deadline; keeps autosave alive while hidden.
         self.autosave_tick(ctx);
         #[cfg(not(target_arch = "wasm32"))]

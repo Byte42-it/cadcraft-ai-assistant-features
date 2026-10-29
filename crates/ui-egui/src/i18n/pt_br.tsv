@@ -1311,6 +1311,7 @@
 	The assistant wants to run a command that writes or reads {path}.	O assistente quer executar um comando que grava ou lê {path}.
 	The assistant wants to run a command that can write files: {command}	O assistente quer executar um comando que pode gravar arquivos: {command}
 	The assistant wants to run a command that can write files.	O assistente quer executar um comando que pode gravar arquivos.
+	The assistant wants to close a drawing: what isn't saved is lost.	O assistente quer fechar um desenho: o que não foi salvo é perdido.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	O assistente esgotou os passos deste turno e parou; o desenho mantém o que ele fez.
 	Start a new conversation? The messages so far will be cleared.	Iniciar uma nova conversa? As mensagens até agora serão apagadas.
 	Keep	Manter

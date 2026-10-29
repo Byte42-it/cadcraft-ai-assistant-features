@@ -1072,6 +1072,7 @@
 	The assistant wants to run a command that writes or reads {path}.	L'assistant veut exécuter une commande qui écrit ou lit {path}.
 	The assistant wants to run a command that can write files: {command}	L'assistant veut exécuter une commande qui peut écrire des fichiers : {command}
 	The assistant wants to run a command that can write files.	L'assistant veut exécuter une commande qui peut écrire des fichiers.
+	The assistant wants to close a drawing: what isn't saved is lost.	L'assistant veut fermer un dessin : ce qui n'est pas enregistré est perdu.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	L'assistant a épuisé les étapes de ce tour et s'est arrêté ; le dessin conserve ce qu'il a fait.
 	Start a new conversation? The messages so far will be cleared.	Commencer une nouvelle conversation ? Les messages échangés jusqu'ici seront effacés.
 	Keep	Garder

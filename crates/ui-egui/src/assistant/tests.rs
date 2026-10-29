@@ -182,6 +182,8 @@ fn the_status_line_reads_as_plain_words_and_goes_away_when_the_turn_ends() {
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to run a command that writes or reads C:/notes.txt."));
     update(&mut a, Update::Confirm { name: "file".into(), args: json!({"text": " wblock "}), reply: channel().0 });
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to run a command that can write files: wblock"));
+    update(&mut a, Update::Confirm { name: "close".into(), args: json!({"text": "close"}), reply: channel().0 });
+    assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to close a drawing: what isn't saved is lost."));
     update(&mut a, Update::Confirm { name: "new_drawing".into(), args: json!({}), reply: channel().0 });
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to start a new drawing: the current one will be closed."));
     assert!(update(&mut a, Update::Done { conversation: None, error: None, balance: None, stopped: false, ran_tools: true }));
@@ -252,6 +254,55 @@ fn a_command_the_assistant_left_waiting_is_cancelled_when_the_turn_ends() {
     pump(&mut app, &ctx);
     assert!(app.session.running.is_none(), "the LINE command was left waiting for its next point");
     assert!(app.assistant.messages.iter().any(|m| m.text == "Ho iniziato una linea."));
+}
+
+/// A CLOSE built at run time asks nothing, and the engine refuses it on the UI thread too: in the
+/// call, and in the frames a LISP routine the call left running ticks in. The routine stops when
+/// the turn ends.
+#[test]
+fn what_a_call_builds_at_run_time_can_t_close_the_drawing() {
+    let close = "(command (strcat \"clo\" \"se\"))";
+    let host = FakeHost::new(vec![
+        tool_reply(&[("a", "execute", json!({"command": "lisp", "params": {"code": close}}))]),
+        tool_reply(&[("b", "command_line", json!({"text": format!("(progn (repeat 300000 (setq n 1)) {close})")}))]),
+        text_reply("Fatto."),
+    ]);
+    host.key.store(true, Ordering::SeqCst);
+    let mut app = app_with(host);
+    let ctx = egui::Context::default();
+    let docs = app.session.docs.len();
+    app.assistant.input = "chiudi".into();
+    send(&mut app, &ctx);
+    pump(&mut app, &ctx);
+    assert_eq!(app.session.docs.len(), docs);
+    // Nothing was asked (a question would have been declined).
+    assert!(!app.assistant.messages.iter().any(|m| m.text.contains("Declined")), "{:?}", app.assistant.messages);
+    assert!(!app.session.lisp_running() && !app.assistant.started_lisp);
+}
+
+/// A routine a call left running ticks in later frames with no consent: its CLOSE is refused. The
+/// same routine started by the user closes the drawing.
+#[test]
+fn a_routine_the_assistant_left_running_ticks_without_consent() {
+    let ctx = egui::Context::default();
+    let run = |assistants: bool| {
+        let mut app = app_with(FakeHost::new(vec![]));
+        app.session.new_drawing(true);
+        let docs = app.session.docs.len();
+        app.session.lisp_eval("(repeat 300000 (setq n 1)) (command \"close\")", false, false, Vec::new()).unwrap();
+        assert!(app.session.lisp_running(), "the routine should take several frames");
+        app.assistant.started_lisp = assistants;
+        for _ in 0..10_000 {
+            if !app.session.lisp_running() {
+                break;
+            }
+            app.logic(&ctx);
+        }
+        assert!(!app.session.lisp_running());
+        docs - app.session.docs.len()
+    };
+    assert_eq!(run(true), 0);
+    assert_eq!(run(false), 1);
 }
 
 #[test]

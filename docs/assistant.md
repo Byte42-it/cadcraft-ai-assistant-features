@@ -1,6 +1,6 @@
 # The AI Assistant
 
-> **Last reviewed:** 2026-10-29 · **Last updated:** 2026-10-29 · **Change:** minor (commands given a file ask first; previously minor: every protected command of a script is asked; what the confirmations do and don't cover; the CLI's starting drawing; previously minor: what the agreement covers, confirmations reach command lines and scripts, how `ask` keeps its changes)
+> **Last reviewed:** 2026-10-29 · **Last updated:** 2026-10-29 · **Change:** minor (the engine refuses the file writes and closes a call wasn't allowed; CLOSE asks first; previously minor: commands given a file ask first; previously minor: every protected command of a script is asked; what the confirmations do and don't cover; the CLI's starting drawing; previously minor: what the agreement covers, confirmations reach command lines and scripts, how `ask` keeps its changes)
 
 **Window ▸ AI Assistant** opens a palette where you ask for a drawing change in your own words
 ("draw a 60 mm flange with four holes on a 45 mm circle") and the assistant carries it out with
@@ -20,8 +20,8 @@ on a drawing of its own (see [From a terminal](#from-a-terminal)). It is the in-
   can't. A turn is one undo step: one Undo takes back everything it drew.
 - **The drawing's files are the user's.** `new_drawing`, `open` and `save` replace the drawing or
   write a file, so each asks first in the palette ("The assistant wants to save the drawing to
-  …"). So does a command line, script or `execute` that names NEW, OPEN, QSAVE or SAVEAS (or an
-  alias of one), and one that names any other command given a file or folder (EXPORT, EXPORTPDF,
+  …"). So does a command line, script or `execute` that names NEW, OPEN, QSAVE, SAVEAS, CLOSE or
+  CLOSEALL (or an alias of one), and one that names any other command given a file or folder (EXPORT, EXPORTPDF,
   PLOT, PUBLISH, WBLOCK, TABLEEXPORT, DATAEXTRACTION, APPLOAD, SCRIPT…: "The assistant wants to run
   a command that writes or reads …"). Which commands those are comes from their parameter docs, so
   a new one asks until it is listed as only reading a file into the drawing (IMPORT, INSERT,
@@ -30,10 +30,28 @@ on a drawing of its own (see [From a terminal](#from-a-terminal)). It is the in-
   yes to a new drawing doesn't approve the save after it). A no stops the whole call and is
   reported to the model, which doesn't retry. `cadcraft-cli ask` asks on a terminal, and declines
   when stdin is not one unless `--yes` is given.
-- **The confirmations catch mistakes; they are not a sandbox.** The assistant reaches the drawing
-  as any MCP client or script does, and the questions above come from reading the call before it
-  runs. Commands built at run time (an encoded SCRIPT, a LISP string) run without a question. A
-  boundary the model can't get around needs a guard in the engine itself (see *Not done yet*).
+- **The engine holds the line the questions draw.** The questions come from reading the call
+  before it runs, so a command it builds at run time (an encoded SCRIPT, a LISP string, a CLOSE
+  assembled with `strcat`) asks nothing. So each call runs with only what its questions earned
+  (`cadcraft_engine::consent`): writing files after a yes to `save` or to a command given a file,
+  closing drawings after a yes to CLOSE, nothing otherwise. Where the engine writes, renames or
+  deletes a file (the shared atomic writer behind SAVE, EXPORT, PLOT, PUBLISH and the layout
+  saver; WBLOCK, TABLEEXPORT, DATAEXTRACTION, the plot-style and plotter managers, a LISP `open`
+  for writing, DRAWINGRECOVERY's discard) and where it closes a drawing, it checks that consent
+  and refuses the rest, wherever the call came from. The palette carries the consent to the UI
+  thread with the call, and `cadcraft-cli ask` runs the call inside it. A LISP routine a call
+  leaves running goes on in later frames with no consent at all, and stops when the turn ends.
+  The user's own commands, the control channel and other MCP clients run without a consent, as
+  before. What it doesn't cover:
+  - The consent is the call's: a command started in one call and finished in the next (SAVEAS
+    answered with its file name in a second `command_line`) is refused there. Giving a command and
+    its file in one call works.
+  - A yes covers the whole call: an approved EXPORT may write another file in the same call.
+  - Reading isn't guarded: IMPORT, INSERT, COMPARE, an XREF or a LISP `open` for reading can read
+    a file the model names, and what they return goes to the model (APPLOAD and SCRIPT ask first,
+    since they run what they read).
+  - SAVEFILEPATH is a setting the assistant can change: autosave then writes its own recovery
+    files (never an existing file of the user's) in that folder.
 - **Plain words in the chat.** While a turn runs, a status line says what the assistant is doing
   ("Running CIRCLE…", "Looking at the drawing…"); the chat keeps what was said, never the
   commands or JSON that ran.
@@ -87,12 +105,6 @@ Saving onto the `--open` file needs `--in-place`, as in `run`.
 - Replies arrive whole, not streamed as they are written.
 - No Stop button: a turn runs until it answers or uses its 20 steps.
 - The web build has no assistant (no worker threads there).
-- No engine-level guard: refusing, while the assistant works, every file write, delete or
-  drawing replacement the user hasn't approved needs a check where the engine does them, not only
-  in the calls the assistant makes. There are many such places: `Session::execute` and
-  `Session::start` (typed and interactive commands), the LISP file builtins, the writers that call
-  `std::fs` directly (WBLOCK, TABLEEXPORT, DATAEXTRACTION, the plot-style and plotter managers),
-  and the app's own `ui.*` commands.
 - Other providers of the layer (a local model, another account) are not offered in the palette
   yet; the host only looks for a FANTASTICO connection.
 
@@ -100,6 +112,7 @@ Saving onto the `--open` file needs `--in-place`, as in `run`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-29 | minor | The engine refuses the file writes and closes the user didn't approve for the call (`cadcraft_engine::consent`), also when the call builds them at run time; CLOSE and CLOSEALL ask first; what the guard doesn't cover |
 | 2026-10-29 | minor | Commands given a file (EXPORT, WBLOCK, PLOT, PUBLISH…) ask first, by any tool |
 | 2026-10-29 | minor | Every protected command of a script is asked; the confirmations are not a sandbox, and the engine-level guard is listed as not done |
 | 2026-10-28 | minor | What the agreement covers; confirmations reach command lines, scripts and `execute`; how `ask` keeps its changes, and `--in-place` |

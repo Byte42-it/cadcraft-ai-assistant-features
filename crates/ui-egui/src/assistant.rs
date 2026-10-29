@@ -295,6 +295,9 @@ pub struct Assistant {
     balance: Option<f64>,
     /// The credit is being read again (a click on it).
     balance_busy: bool,
+    /// A call of this turn left a LISP routine running: it ticks with no consent, and stops when
+    /// the turn ends.
+    pub(crate) started_lisp: bool,
     /// The fresh-start question is up.
     clear_asked: bool,
     /// The reply language, kept in the preferences.
@@ -326,6 +329,7 @@ impl Default for Assistant {
             account_requested: false,
             balance: None,
             balance_busy: false,
+            started_lisp: false,
             clear_asked: false,
             language: Language::default(),
             model: None,
@@ -430,9 +434,8 @@ struct UiBackend {
     ctx: egui::Context,
 }
 
-impl Backend for UiBackend {
-    fn call(&mut self, method: &str, params: Value) -> Result<Value, String> {
-        let (req, pending) = ControlRequest::new(method, params);
+impl UiBackend {
+    fn send(&mut self, req: ControlRequest, pending: crate::control::PendingReply) -> Result<Value, String> {
         self.tx.send(req).map_err(|_| "CADCraft is closing".to_string())?;
         self.ctx.request_repaint();
         let v = pending.wait(TOOL_TIMEOUT);
@@ -441,6 +444,18 @@ impl Backend for UiBackend {
         } else {
             Err(v.get("error").and_then(Value::as_str).unwrap_or("error").to_string())
         }
+    }
+}
+
+impl Backend for UiBackend {
+    fn call(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        let (req, pending) = ControlRequest::new(method, params);
+        self.send(req, pending)
+    }
+    /// The UI thread runs the call: the consent goes with it.
+    fn call_with(&mut self, method: &str, params: Value, consent: cadcraft_engine::consent::Consent) -> Result<Value, String> {
+        let (req, pending) = ControlRequest::new(method, params);
+        self.send(req.with_consent(consent), pending)
     }
     /// Command-level tools only: the assistant doesn't drive the pointer.
     fn has_ui(&self) -> bool {
@@ -517,6 +532,7 @@ fn confirm_text(name: &str, args: &Value) -> String {
         ("open", None) => crate::tl!("The assistant wants to open a drawing.").to_string(),
         ("save", Some(p)) => crate::tf!("The assistant wants to save the drawing to {path}.", path = p),
         ("save", None) => crate::tl!("The assistant wants to save the drawing.").to_string(),
+        ("close", _) => crate::tl!("The assistant wants to close a drawing: what isn't saved is lost.").to_string(),
         ("file", Some(p)) => crate::tf!("The assistant wants to run a command that writes or reads {path}.", path = p),
         // A command line or script: what it runs.
         ("file", None) => match args.get("text").and_then(Value::as_str).map(|t| clip(t.trim(), 200)).filter(|t| !t.is_empty()) {
@@ -729,10 +745,23 @@ pub fn tick(app: &mut CadApp, ctx: &egui::Context) {
                         Err(e) => json!({"ok": false, "error": e.to_string()}),
                     }
                 }
-                _ => match crate::control::handle(app, ctx, &req) {
-                    Outcome::Done(v) => v,
-                    Outcome::Screenshot { .. } => json!({"ok": false, "error": "screenshots are not available to the assistant"}),
-                },
+                _ => {
+                    let lisp_before = app.session.lisp_running();
+                    let handle = |app: &mut CadApp| match crate::control::handle(app, ctx, &req) {
+                        Outcome::Done(v) => v,
+                        Outcome::Screenshot { .. } => json!({"ok": false, "error": "screenshots are not available to the assistant"}),
+                    };
+                    let v = match req.consent {
+                        Some(c) => cadcraft_engine::consent::with(c, || handle(app)),
+                        None => handle(app),
+                    };
+                    // A LISP routine the call left running goes on in later frames, outside the
+                    // call: it runs with no consent at all, and stops when the turn ends.
+                    if !lisp_before && app.session.lisp_running() {
+                        app.assistant.started_lisp = true;
+                    }
+                    v
+                }
             };
             let _ = req.reply.send(v);
             ctx.request_repaint();
@@ -746,6 +775,9 @@ pub fn tick(app: &mut CadApp, ctx: &egui::Context) {
         // sit on the command line until the user noticed.
         if turn_ended && app.session.running.is_some() {
             let _ = app.session.input(cadcraft_engine::Input::Cancel);
+        }
+        if turn_ended && std::mem::take(&mut app.assistant.started_lisp) && app.session.lisp_running() {
+            app.session.lisp_abort("Function cancelled: the AI Assistant's turn ended");
         }
     }
     app.assistant.updates_rx = Some(rx);

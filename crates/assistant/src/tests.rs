@@ -199,6 +199,43 @@ fn every_command_that_writes_a_file_asks() {
     }
 }
 
+/// A call that builds its file write at run time names nothing the questions can see, so nothing
+/// is asked: the engine refuses the write anyway, since the call has no consent to write.
+#[test]
+fn a_write_built_at_run_time_is_refused_by_the_engine() {
+    let dir = std::env::temp_dir().join(format!("cadcraft-assistant-runtime-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("notes.txt");
+    std::fs::write(&path, "the user's notes").unwrap();
+    let p = path.to_string_lossy().replace('\\', "/");
+    // `open` assembled from two halves, the mode from its character code.
+    let code =
+        format!("(setq o (eval (read (strcat \"op\" \"en\")))) (setq f (o \"{p}\" (chr 119))) (if f (progn (write-line \"gone\" f) (close f)))");
+    let mut log = Log { yes: true, ..Log::default() };
+    let mut p = Scripted::new([tool_reply(&[("a", "execute", json!({"command": "lisp", "params": {"code": code}}))]), text_reply("ok")]);
+    Agent::new(Config::new("m")).send(&mut p, &mut Headless::default(), "go", &mut log).unwrap();
+    assert!(log.asked.is_empty(), "{:?}", log.asked);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "the user's notes");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// CLOSE asks first; one built at run time isn't asked, and the engine refuses it.
+#[test]
+fn closing_a_drawing_needs_the_users_yes() {
+    let run = |yes: bool, tool: &str, args: Value| {
+        let mut b = Headless::default();
+        b.session.new_drawing(true);
+        let mut log = Log { yes, ..Log::default() };
+        let mut p = Scripted::new([tool_reply(&[("a", tool, args)]), text_reply("ok")]);
+        Agent::new(Config::new("m")).send(&mut p, &mut b, "go", &mut log).unwrap();
+        (log.asked, b.session.docs.len())
+    };
+    assert_eq!(run(false, "command_line", json!({"text": "close"})), (vec!["close".to_string()], 2));
+    assert_eq!(run(true, "command_line", json!({"text": "_closeall"})), (vec!["close".to_string()], 0));
+    let built = json!({"command": "lisp", "params": {"code": "(command (strcat \"clo\" \"se\"))"}});
+    assert_eq!(run(true, "execute", built), (vec![], 2));
+}
+
 /// A file named by text in the drawing isn't overwritten by EXPORT unless the user says yes.
 #[test]
 fn export_doesnt_overwrite_a_file_unasked() {

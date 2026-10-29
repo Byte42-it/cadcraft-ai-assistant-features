@@ -1428,6 +1428,7 @@
 	The assistant wants to run a command that writes or reads {path}.	Асистент хоче виконати команду, яка записує або читає {path}.
 	The assistant wants to run a command that can write files: {command}	Асистент хоче виконати команду, яка може записувати файли: {command}
 	The assistant wants to run a command that can write files.	Асистент хоче виконати команду, яка може записувати файли.
+	The assistant wants to close a drawing: what isn't saved is lost.	Асистент хоче закрити креслення: незбережені зміни буде втрачено.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	Асистент вичерпав кроки цього ходу й зупинився; креслення зберігає зроблене.
 	Start a new conversation? The messages so far will be cleared.	Почати нову розмову? Повідомлення дотепер буде видалено.
 	Keep	Залишити

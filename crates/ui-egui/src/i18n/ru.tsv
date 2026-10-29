@@ -1070,6 +1070,9 @@
 	The assistant wants to open a drawing.	Ассистент хочет открыть чертёж.
 	The assistant wants to save the drawing to {path}.	Ассистент хочет сохранить чертёж в {path}.
 	The assistant wants to save the drawing.	Ассистент хочет сохранить чертёж.
+	The assistant wants to run a command that writes or reads {path}.	Ассистент хочет выполнить команду, которая записывает или читает {path}.
+	The assistant wants to run a command that can write files: {command}	Ассистент хочет выполнить команду, которая может записывать файлы: {command}
+	The assistant wants to run a command that can write files.	Ассистент хочет выполнить команду, которая может записывать файлы.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	Ассистент исчерпал шаги этого хода и остановился; чертёж сохраняет сделанное.
 	Start a new conversation? The messages so far will be cleared.	Начать новый разговор? Сообщения до этого момента будут удалены.
 	Keep	Оставить

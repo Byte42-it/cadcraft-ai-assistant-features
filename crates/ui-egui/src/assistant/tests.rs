@@ -178,6 +178,10 @@ fn the_status_line_reads_as_plain_words_and_goes_away_when_the_turn_ends() {
     // Confirmations ask in words, not JSON.
     update(&mut a, Update::Confirm { name: "save".into(), args: json!({"path": " C:/plans/bracket.dxf "}), reply: channel().0 });
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to save the drawing to C:/plans/bracket.dxf."));
+    update(&mut a, Update::Confirm { name: "file".into(), args: json!({"path": "C:/notes.txt", "format": "dxf"}), reply: channel().0 });
+    assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to run a command that writes or reads C:/notes.txt."));
+    update(&mut a, Update::Confirm { name: "file".into(), args: json!({"text": " wblock "}), reply: channel().0 });
+    assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to run a command that can write files: wblock"));
     update(&mut a, Update::Confirm { name: "new_drawing".into(), args: json!({}), reply: channel().0 });
     assert_eq!(a.confirm.as_ref().map(|c| c.0.as_str()), Some("The assistant wants to start a new drawing: the current one will be closed."));
     assert!(update(&mut a, Update::Done { conversation: None, error: None, balance: None, stopped: false, ran_tools: true }));

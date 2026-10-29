@@ -1308,6 +1308,9 @@
 	The assistant wants to open a drawing.	El asistente quiere abrir un dibujo.
 	The assistant wants to save the drawing to {path}.	El asistente quiere guardar el dibujo en {path}.
 	The assistant wants to save the drawing.	El asistente quiere guardar el dibujo.
+	The assistant wants to run a command that writes or reads {path}.	El asistente quiere ejecutar un comando que escribe o lee {path}.
+	The assistant wants to run a command that can write files: {command}	El asistente quiere ejecutar un comando que puede escribir archivos: {command}
+	The assistant wants to run a command that can write files.	El asistente quiere ejecutar un comando que puede escribir archivos.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	El asistente agotó los pasos de este turno y se detuvo; el dibujo conserva lo que hizo.
 	Start a new conversation? The messages so far will be cleared.	¿Iniciar una conversación nueva? Los mensajes hasta ahora se borrarán.
 	Keep	Conservar

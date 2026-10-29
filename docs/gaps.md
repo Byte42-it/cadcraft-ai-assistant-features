@@ -1,6 +1,6 @@
 # Where CADCraft falls short of AutoCAD
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-29 · **Change:** minor (A2 widened: the assistant's confirmations are not a sandbox, an engine-level guard on its file writes is missing, 3–6 → 8–14 h; previously minor: A2 narrowed: Window ▸ AI Assistant and `cadcraft-cli ask` on a FANTASTICO account through the shared Craft AI layer, see [assistant.md](assistant.md); previously minor: Named Viewports dialog: U11 narrowed; MVIEW Restore and PURGE of multiline styles had landed: F15 and F21 corrected) · **Target:** Autodesk AutoCAD 2027
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-29 · **Change:** minor (A2: commands given a file ask first; previously minor: A2 widened: the assistant's confirmations are not a sandbox, an engine-level guard on its file writes is missing, 3–6 → 8–14 h; previously minor: A2 narrowed: Window ▸ AI Assistant and `cadcraft-cli ask` on a FANTASTICO account through the shared Craft AI layer, see [assistant.md](assistant.md); previously minor: Named Viewports dialog: U11 narrowed; MVIEW Restore and PURGE of multiline styles had landed: F15 and F21 corrected) · **Target:** Autodesk AutoCAD 2027
 
 Every known shortfall, one row each, ranked within each section by user impact. This is the work
 list: agents pick from here (top of a section first), and remove or update a row in the same PR
@@ -150,6 +150,7 @@ Detail: [localization-parity.md](localization-parity.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-29 | minor | A2: the assistant's commands given a file (EXPORT, WBLOCK, PLOT…) ask first; the engine-level guard is still missing |
 | 2026-10-29 | minor | A2 widened: an engine-level guard on the files the assistant writes is missing (its confirmations read the calls, they are not a sandbox); 3–6 → 8–14 h |
 | 2026-10-27 | minor | A2 narrowed: the AI Assistant (Window ▸ AI Assistant, `cadcraft-cli ask`) on a FANTASTICO account through the shared Craft AI layer; 10–20 → 3–6 h |
 | 2026-10-25 | minor | Named Viewports (View ▸ Viewports ▸ Named Viewports..., `vports.named`) lists the saved viewport configurations with a preview and the current one's name, and restores or deletes one; in a layout Restore places it as MVIEW Restore does: U11 narrowed. F15 and U11 no longer list MVIEW Restore (#633), and F21 no longer says PURGE skips multiline styles |

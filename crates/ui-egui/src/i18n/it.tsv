@@ -1419,6 +1419,9 @@ menu	Modify	Edita
 	The assistant wants to open a drawing.	L'assistente vuole aprire un disegno.
 	The assistant wants to save the drawing to {path}.	L'assistente vuole salvare il disegno in {path}.
 	The assistant wants to save the drawing.	L'assistente vuole salvare il disegno.
+	The assistant wants to run a command that writes or reads {path}.	L'assistente vuole eseguire un comando che scrive o legge {path}.
+	The assistant wants to run a command that can write files: {command}	L'assistente vuole eseguire un comando che può scrivere file: {command}
+	The assistant wants to run a command that can write files.	L'assistente vuole eseguire un comando che può scrivere file.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	L'assistente ha esaurito i passi disponibili per questo turno e si è fermato; il disegno conserva quanto fatto.
 	Start a new conversation? The messages so far will be cleared.	Iniziare una nuova conversazione? I messaggi finora saranno cancellati.
 	Keep	Mantieni

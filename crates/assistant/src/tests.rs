@@ -138,6 +138,95 @@ _qnew")});
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Any other command given a file asks `file` first, by any tool: EXPORT, WBLOCK, PLOT… and a
+/// command the engine doesn't know, given a path. Commands that only read a file into the drawing,
+/// and drawing commands, ask nothing.
+#[test]
+fn commands_given_a_file_ask_first() {
+    let cases = [
+        ("execute", json!({"command": "export", "params": {"path": "notes.txt", "format": "dxf"}}), Some("file")),
+        ("execute", json!({"command": "WBLOCK", "params": {"path": "b.dwg", "name": "B"}}), Some("file")),
+        ("execute", json!({"command": "nosuchcommand", "params": {"path": "x"}}), Some("file")),
+        ("command_line", json!({"text": "_exportpdf out.pdf"}), Some("file")),
+        ("command_line", json!({"text": "tableexport"}), Some("file")),
+        ("script", json!({"text": "circle 0,0 5\npublish"}), Some("file")),
+        ("script", json!({"text": "(command \"plot\")"}), Some("file")),
+        // The question for opening, once, not a second one for its path.
+        ("execute", json!({"command": "open", "params": {"path": "x.dxf"}}), Some("open")),
+        ("execute", json!({"command": "insert", "params": {"name": "B", "file": "b.dwg"}}), None),
+        ("execute", json!({"command": "arraypath", "params": {"handles": ["2A"], "path": "2B"}}), None),
+        ("command_line", json!({"text": "hatch"}), None),
+        ("command_line", json!({"text": "array"}), None),
+    ];
+    for (tool, args, asked) in cases {
+        let mut log = Log::default();
+        let mut p = Scripted::new([tool_reply(&[("a", tool, args.clone())]), text_reply("ok")]);
+        Agent::new(Config::new("m")).send(&mut p, &mut Headless::default(), "go", &mut log).unwrap();
+        assert_eq!(log.asked, asked.into_iter().collect::<Vec<_>>(), "{tool} {args}");
+        assert_eq!(log.events.contains(&format!("declined {tool}")), asked.is_some(), "{tool} {args}");
+    }
+}
+
+/// The engine's commands that write a file the caller names, or run one, ask; the ones listed as
+/// reading only don't, and nor do drawing commands.
+#[test]
+fn every_command_that_writes_a_file_asks() {
+    let writes = [
+        "export",
+        "exportpdf",
+        "plot",
+        "publish",
+        "pdfbook",
+        "wblock",
+        "tableexport",
+        "dataextraction",
+        "eattext",
+        "layout",
+        "layout.saveas",
+        "stylesmanager",
+        "plottermanager",
+        "aliasedit",
+        "drawingrecovery",
+        "appload",
+        "script",
+    ];
+    for id in writes {
+        assert!(cadcraft_engine::cmd::find_command(id).is_some(), "{id} is not a command");
+        assert!(crate::agent::takes_file(id), "{id} doesn't ask");
+    }
+    for id in ["import", "insert", "hatch", "array", "arraypath", "xref", "line", "circle", "entities"] {
+        assert!(!crate::agent::takes_file(id), "{id} asks");
+    }
+}
+
+/// A file named by text in the drawing isn't overwritten by EXPORT unless the user says yes.
+#[test]
+fn export_doesnt_overwrite_a_file_unasked() {
+    cadcraft_engine::cmd::file::set_io(cadcraft_engine::cmd::file::IoHooks {
+        read: |b, name| cadcraft_io::read(b, name).map_err(|e| e.to_string()),
+        write: |d, name| cadcraft_io::write(d, name).map_err(|e| e.to_string()),
+        plot: None,
+    });
+    let dir = std::env::temp_dir().join(format!("cadcraft-assistant-export-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("notes.txt");
+    std::fs::write(&path, "the user's notes").unwrap();
+    let call = json!({"command": "export", "params": {"path": path.to_string_lossy(), "format": "dxf"}});
+    let run = |yes: bool| {
+        let mut log = Log { yes, ..Log::default() };
+        let mut p = Scripted::new([tool_reply(&[("a", "execute", call.clone())]), text_reply("ok")]);
+        Agent::new(Config::new("m")).send(&mut p, &mut Headless::default(), "go", &mut log).unwrap();
+        log
+    };
+    let declined = run(false);
+    assert_eq!(declined.asked, ["file"]);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "the user's notes");
+    let confirmed = run(true);
+    assert_eq!(confirmed.asked, ["file"]);
+    assert_ne!(std::fs::read_to_string(&path).unwrap_or_default(), "the user's notes", "{:?}", confirmed.events);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[test]
 fn tools_that_replace_the_drawing_or_write_files_need_confirmation() {
     cadcraft_engine::cmd::file::set_io(cadcraft_engine::cmd::file::IoHooks {

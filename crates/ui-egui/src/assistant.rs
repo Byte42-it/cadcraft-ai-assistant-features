@@ -517,6 +517,12 @@ fn confirm_text(name: &str, args: &Value) -> String {
         ("open", None) => crate::tl!("The assistant wants to open a drawing.").to_string(),
         ("save", Some(p)) => crate::tf!("The assistant wants to save the drawing to {path}.", path = p),
         ("save", None) => crate::tl!("The assistant wants to save the drawing.").to_string(),
+        ("file", Some(p)) => crate::tf!("The assistant wants to run a command that writes or reads {path}.", path = p),
+        // A command line or script: what it runs.
+        ("file", None) => match args.get("text").and_then(Value::as_str).map(|t| clip(t.trim(), 200)).filter(|t| !t.is_empty()) {
+            Some(t) => crate::tf!("The assistant wants to run a command that can write files: {command}", command = t),
+            None => crate::tl!("The assistant wants to run a command that can write files.").to_string(),
+        },
         _ => crate::tf!("The assistant wants to run {tool}.", tool = name),
     }
 }

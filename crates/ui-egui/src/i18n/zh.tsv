@@ -1401,6 +1401,9 @@
 	The assistant wants to open a drawing.	助手想要打开图形。
 	The assistant wants to save the drawing to {path}.	助手想要将图形保存到 {path}。
 	The assistant wants to save the drawing.	助手想要保存图形。
+	The assistant wants to run a command that writes or reads {path}.	助手想要运行一个会写入或读取 {path} 的命令。
+	The assistant wants to run a command that can write files: {command}	助手想要运行一个可能写入文件的命令：{command}
+	The assistant wants to run a command that can write files.	助手想要运行一个可能写入文件的命令。
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	助手已用完本轮的步骤并停止；图形保留已完成的内容。
 	Start a new conversation? The messages so far will be cleared.	开始新的对话？此前的消息将被清除。
 	Keep	保留

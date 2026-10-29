@@ -1279,6 +1279,9 @@ menu	Modify	Modifikace
 	The assistant wants to open a drawing.	Asistent chce otevřít výkres.
 	The assistant wants to save the drawing to {path}.	Asistent chce uložit výkres do {path}.
 	The assistant wants to save the drawing.	Asistent chce uložit výkres.
+	The assistant wants to run a command that writes or reads {path}.	Asistent chce spustit příkaz, který zapisuje nebo čte {path}.
+	The assistant wants to run a command that can write files: {command}	Asistent chce spustit příkaz, který může zapisovat soubory: {command}
+	The assistant wants to run a command that can write files.	Asistent chce spustit příkaz, který může zapisovat soubory.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	Asistent vyčerpal kroky tohoto tahu a zastavil se; výkres si ponechá, co udělal.
 	Start a new conversation? The messages so far will be cleared.	Začít novou konverzaci? Dosavadní zprávy budou smazány.
 	Keep	Ponechat

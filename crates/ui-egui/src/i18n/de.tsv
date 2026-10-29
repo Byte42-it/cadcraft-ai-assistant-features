@@ -1096,6 +1096,9 @@
 	The assistant wants to open a drawing.	Der Assistent möchte eine Zeichnung öffnen.
 	The assistant wants to save the drawing to {path}.	Der Assistent möchte die Zeichnung unter {path} speichern.
 	The assistant wants to save the drawing.	Der Assistent möchte die Zeichnung speichern.
+	The assistant wants to run a command that writes or reads {path}.	Der Assistent möchte einen Befehl ausführen, der {path} schreibt oder liest.
+	The assistant wants to run a command that can write files: {command}	Der Assistent möchte einen Befehl ausführen, der Dateien schreiben kann: {command}
+	The assistant wants to run a command that can write files.	Der Assistent möchte einen Befehl ausführen, der Dateien schreiben kann.
 	The assistant ran out of steps for this turn and stopped; the drawing keeps what it did.	Der Assistent hat die Schritte für diesen Durchgang aufgebraucht und angehalten; die Zeichnung behält, was er getan hat.
 	Start a new conversation? The messages so far will be cleared.	Neue Unterhaltung beginnen? Die bisherigen Nachrichten werden gelöscht.
 	Keep	Behalten

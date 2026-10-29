@@ -1,6 +1,6 @@
 # The AI Assistant
 
-> **Last reviewed:** 2026-10-28 · **Last updated:** 2026-10-28 · **Change:** minor (what the agreement covers; confirmations reach command lines and scripts; how `ask` keeps its changes; previously major: first version: the palette, `cadcraft-cli ask`, the shared Craft AI layer)
+> **Last reviewed:** 2026-10-29 · **Last updated:** 2026-10-29 · **Change:** minor (every protected command of a script is asked; what the confirmations do and don't cover; the CLI's starting drawing; previously minor: what the agreement covers, confirmations reach command lines and scripts, how `ask` keeps its changes)
 
 **Window ▸ AI Assistant** opens a palette where you ask for a drawing change in your own words
 ("draw a 60 mm flange with four holes on a 45 mm circle") and the assistant carries it out with
@@ -21,8 +21,16 @@ on a drawing of its own (see [From a terminal](#from-a-terminal)). It is the in-
 - **The drawing's files are the user's.** `new_drawing`, `open` and `save` replace the drawing or
   write a file, so each asks first in the palette ("The assistant wants to save the drawing to
   …"). So does a command line, script or `execute` that names NEW, OPEN, QSAVE or SAVEAS (or an
-  alias of one): any word counts, so a word that is only text asks too. A no is reported to the model, which doesn't retry. `cadcraft-cli ask` asks on a terminal,
-  and declines when stdin is not one unless `--yes` is given.
+  alias of one): any word counts, so a word that is only text asks too, and a script that names
+  several asks each one (a yes to a new drawing doesn't approve the save after it). A no stops the
+  whole call and is reported to the model, which doesn't retry. `cadcraft-cli ask` asks on a
+  terminal, and declines when stdin is not one unless `--yes` is given.
+- **The confirmations catch mistakes; they are not a sandbox.** The assistant reaches the drawing
+  as any MCP client or script does, and the questions above come from reading the call before it
+  runs. Commands that write files without naming those four (WBLOCK, EXPORT, PLOT, TABLEEXPORT,
+  DATAEXTRACTION, a LISP `open` for writing…), and commands built at run time (an encoded SCRIPT,
+  a LISP string), run without a question. A boundary the model can't get around needs a guard in
+  the engine itself (see *Not done yet*).
 - **Plain words in the chat.** While a turn runs, a status line says what the assistant is doing
   ("Running CIRCLE…", "Looking at the drawing…"); the chat keeps what was said, never the
   commands or JSON that ran.
@@ -59,8 +67,9 @@ account's prepaid credit. The desktop app reaches it through the shared Craft AI
 
 `cadcraft-cli ask` reads the key from `$FANTASTICO_KEY` and calls the account directly with
 `fantastico-sdk`, without the layer: it has no keychain or agreement to keep. It works on a
-session of its own, not on the desktop's drawing: `--open` starts from a file (`--sample` and
-`--metric` from the sample or an empty metric drawing), and the changes are kept only by
+session of its own, not on the desktop's drawing. It starts from one of: `--open FILE` (that
+file), `--sample` (the built-in sample), `--metric` (a new metric drawing), or, with none of the
+three, a new imperial drawing; the three can't be combined. The changes are kept only by
 `--save` (or `--export` for an image) or a save the assistant was allowed to make; otherwise they
 end with the command.
 
@@ -75,6 +84,12 @@ Saving onto the `--open` file needs `--in-place`, as in `run`.
 - Replies arrive whole, not streamed as they are written.
 - No Stop button: a turn runs until it answers or uses its 20 steps.
 - The web build has no assistant (no worker threads there).
+- No engine-level guard: refusing, while the assistant works, every file write, delete or
+  drawing replacement the user hasn't approved needs a check where the engine does them, not only
+  in the calls the assistant makes. There are many such places: `Session::execute` and
+  `Session::start` (typed and interactive commands), the LISP file builtins, the writers that call
+  `std::fs` directly (WBLOCK, TABLEEXPORT, DATAEXTRACTION, the plot-style and plotter managers),
+  and the app's own `ui.*` commands.
 - Other providers of the layer (a local model, another account) are not offered in the palette
   yet; the host only looks for a FANTASTICO connection.
 
@@ -82,5 +97,6 @@ Saving onto the `--open` file needs `--in-place`, as in `run`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-29 | minor | Every protected command of a script is asked; the confirmations are not a sandbox, and the engine-level guard is listed as not done |
 | 2026-10-28 | minor | What the agreement covers; confirmations reach command lines, scripts and `execute`; how `ask` keeps its changes, and `--in-place` |
 | 2026-10-27 | major | First version: the palette and `cadcraft-cli ask`; the account on the shared Craft AI layer (keychain, agreement, jobs) |

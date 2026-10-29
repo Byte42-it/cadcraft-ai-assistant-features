@@ -335,9 +335,10 @@ fn run_tool(backend: &mut dyn Backend, call: &Call, observer: &mut dyn Observer)
         Err(e) => (false, format!("error: {e}")),
         Ok(args) => {
             observer.event(Event::ToolCall { name, arguments: args });
-            if let Some(asked) = needs_confirmation(name, args)
-                && !observer.confirm(asked, args.get("params").filter(|_| name == "execute").unwrap_or(args))
-            {
+            // Every protected operation of the call is asked, one by one: approving a new drawing
+            // doesn't approve the save a script does after it.
+            let shown = args.get("params").filter(|_| name == "execute").unwrap_or(args);
+            if !needs_confirmation(name, args).into_iter().all(|asked| observer.confirm(asked, shown)) {
                 observer.event(Event::Declined { name });
                 return format!("The user declined `{name}`. Don't retry it; ask the user what they want instead.");
             }
@@ -352,29 +353,42 @@ fn run_tool(backend: &mut dyn Backend, call: &Call, observer: &mut dyn Observer)
     text
 }
 
-/// The tool whose confirmation a call needs, if it replaces the drawing or writes a file: one of
-/// [`CONFIRM`], or a command line, script or `execute` that names a [`PROTECTED`] command by its
-/// id or an alias. Any word of a line or script counts (a script's spaces are Enters), so a word
-/// that is only text asks too: asking once too often beats writing a file unasked.
-fn needs_confirmation(name: &str, args: &Value) -> Option<&'static str> {
+/// The tools whose confirmations a call needs, each once and in order, if it replaces the drawing
+/// or writes a file: one of [`CONFIRM`], or a command line, script or `execute` that names
+/// [`PROTECTED`] commands by id or alias. Any word of a line or script counts (a script's spaces
+/// are Enters), so a word that is only text asks too: asking once too often beats writing a file
+/// unasked.
+///
+/// This guards against the model's mistakes, not against a hostile one: what a command builds at
+/// run time (an encoded SCRIPT, a LISP string) and the other commands that write files are not
+/// seen here (see `docs/assistant.md`).
+fn needs_confirmation(name: &str, args: &Value) -> Vec<&'static str> {
     if let Some(tool) = CONFIRM.iter().find(|t| **t == name) {
-        return Some(tool);
+        return vec![tool];
     }
     let protected = |word: &str| {
         // `_open`, `._qsave` and `'new` are the same commands.
         let id = cadcraft_engine::cmd::resolve_alias(word.trim_start_matches(['_', '.', '\'', '-']));
         PROTECTED.iter().find(|(c, _)| *c == id).map(|(_, tool)| *tool)
     };
-    match name {
-        "execute" => args.get("command").and_then(Value::as_str).and_then(protected),
+    let words: Vec<&str> = match name {
+        "execute" => args.get("command").and_then(Value::as_str).into_iter().collect(),
         "command_line" | "script" => args
             .get("text")
-            .and_then(Value::as_str)?
+            .and_then(Value::as_str)
+            .unwrap_or_default()
             .split(|c: char| c.is_whitespace() || matches!(c, '(' | ')' | '"' | ';'))
             .filter(|w| !w.is_empty())
-            .find_map(protected),
-        _ => None,
+            .collect(),
+        _ => Vec::new(),
+    };
+    let mut asked = Vec::new();
+    for tool in words.into_iter().filter_map(protected) {
+        if !asked.contains(&tool) {
+            asked.push(tool);
+        }
     }
+    asked
 }
 
 /// The text blocks of an MCP tool result.

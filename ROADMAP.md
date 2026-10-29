@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~2 points (38% → 40% ready for real work) and ~125–190 Opus 5.5 hours away (the four failing core workflows of the [alpha gate](docs/roadmap.md#alpha-gate))
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-27 · **Change:** minor (the AI Assistant on the shared Craft AI layer, A2: AI features 20% → 35%; previously trivial: progress log: proxy objects keep their class through a save, #1812; previously minor: HATCHEDIT boundary add/remove progress) · **Target:** Autodesk AutoCAD 2027
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-29 · **Change:** minor (AI features 30–65 → 35–75 h: the assistant's file writes need an engine-level guard, A2; previously minor: the AI Assistant on the shared Craft AI layer, A2: AI features 20% → 35%) · **Target:** Autodesk AutoCAD 2027
 
 CADCraft targets full parity with AutoCAD (2D drafting first, then annotation, layouts and
 plotting, DWG, parametrics and 3D), plus what AutoCAD doesn't have: agent control over MCP, a
@@ -57,7 +57,7 @@ Hours are Opus 5.5 agent wall-clock hours, calibrated on this repo's own build: 
 | Stability | 35% | 30–50 | [gaps.md](docs/gaps.md#stability) |
 | Platforms | 75% | 15–25 | [gaps.md](docs/gaps.md#platforms) |
 | Ecosystem and automation | 10% | 120–200 | [gaps.md](docs/gaps.md#ecosystem-and-automation) |
-| AI features | 35% | 30–65 | [gaps.md](docs/gaps.md#ai-features) |
+| AI features | 35% | 35–75 | [gaps.md](docs/gaps.md#ai-features) |
 
 ## Features
 
@@ -137,6 +137,7 @@ Ranked; detail and the full beta checklist in [docs/roadmap.md](docs/roadmap.md)
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-29 | minor | AI features 30–65 → 35–75 h: the assistant's file writes need an engine-level guard (A2) |
 | 2026-10-27 | minor | The AI Assistant on the shared Craft AI layer (A2): AI features 20% → 35% |
 | 2026-10-21 | trivial | Progress log: proxy objects keep their class through a save (#1812) |
 | 2026-10-14 | minor | Progress log: HATCHEDIT boundary add/remove |

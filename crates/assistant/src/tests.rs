@@ -110,6 +110,34 @@ fn protected_commands_need_confirmation_by_any_tool() {
     }
 }
 
+/// A script with a new drawing and then a save asks both; a yes to the first doesn't approve the
+/// second, and one no stops the whole script.
+#[test]
+fn every_protected_command_of_a_script_is_asked() {
+    // Another test may have installed the file hooks: if the save runs, it lands in a scratch folder.
+    let dir = std::env::temp_dir().join(format!("cadcraft-assistant-all-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let out = dir.join("out.dxf").to_string_lossy().replace('\\', "/");
+    let script = json!({"text": format!("new
+circle 0,0 5
+saveas \"{out}\"
+_qnew")});
+    let run = |yes: bool| {
+        let mut log = Log { yes, ..Log::default() };
+        let mut p = Scripted::new([tool_reply(&[("a", "script", script.clone())]), text_reply("ok")]);
+        Agent::new(Config::new("m")).send(&mut p, &mut Headless::default(), "go", &mut log).unwrap();
+        log
+    };
+    // Each distinct question once, in order.
+    assert_eq!(run(true).asked, ["new_drawing", "save"]);
+    // A no stops at the first question and nothing runs.
+    let declined = run(false);
+    assert_eq!(declined.asked, ["new_drawing"]);
+    assert!(declined.events.contains(&"declined script".to_string()));
+    assert!(!declined.events.iter().any(|e| e.starts_with("result script")));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn tools_that_replace_the_drawing_or_write_files_need_confirmation() {
     cadcraft_engine::cmd::file::set_io(cadcraft_engine::cmd::file::IoHooks {

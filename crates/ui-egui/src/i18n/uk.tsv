@@ -1373,6 +1373,7 @@
 	Check for Updates…	Перевірити оновлення…
 	CADCraft is up to date.	Встановлено найновішу версію CADCraft.
 	Could not check for updates.	Не вдалося перевірити оновлення.
+	Save changes to block "{name}"?	Зберегти зміни в блоці «{name}»?
 # AI Assistant
 	AI Assistant	ШІ-асистент
 	Hi! I'm the AI Assistant. Tell me what to draw or change in the drawing, and I'll do it with CADCraft's commands.	Вітаю! Я ШІ-асистент. Скажіть, що накреслити або змінити в кресленні, і я зроблю це командами CADCraft.
